@@ -1,0 +1,111 @@
+{
+  "format": 1,
+  "restore": {
+    "/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/CustomFormsApp.csproj": {}
+  },
+  "projects": {
+    "/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/CustomFormsApp.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/CustomFormsApp.csproj",
+        "projectName": "CustomFormsApp",
+        "projectPath": "/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/CustomFormsApp.csproj",
+        "packagesPath": "/Users/isaacsilvagutierrez/.nuget/packages/",
+        "outputPath": "/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/Users/isaacsilvagutierrez/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0"
+        ],
+        "sources": {
+          "/Users/isaacsilvagutierrez/local-nuget-packages": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0": {
+            "targetAlias": "net9.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.200"
+      },
+      "frameworks": {
+        "net9.0": {
+          "targetAlias": "net9.0",
+          "dependencies": {
+            "Azure.Storage.Blobs": {
+              "target": "Package",
+              "version": "[12.24.0, )"
+            },
+            "Markdig": {
+              "target": "Package",
+              "version": "[0.40.0, )"
+            },
+            "Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[9.0.3, )"
+            },
+            "Microsoft.AspNetCore.Identity.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[9.0.3, )"
+            },
+            "Microsoft.AspNetCore.Identity.UI": {
+              "target": "Package",
+              "version": "[9.0.3, )"
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[9.0.3, )"
+            },
+            "Microsoft.EntityFrameworkCore.SqlServer": {
+              "target": "Package",
+              "version": "[9.0.3, )"
+            },
+            "Microsoft.EntityFrameworkCore.Sqlite": {
+              "target": "Package",
+              "version": "[9.0.3, )"
+            },
+            "Microsoft.EntityFrameworkCore.Tools": {
+              "target": "Package",
+              "version": "[9.0.3, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.201/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
