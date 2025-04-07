@@ -1,0 +1,20 @@
+﻿@namespace CustomFormsApp.Components.Account.Shared
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Components.Web
+
+<div class="redirect-message p-3">
+    <p>You need to be logged in to access this page.</p>
+    <button class="btn btn-primary" @onclick="RedirectToLoginPage">
+        <i class="bi bi-box-arrow-in-right"></i> Go to Login
+    </button>
+</div>
+
+@code {
+    [Parameter] public string ReturnUrl { get; set; } = "";
+
+    private void RedirectToLoginPage()
+    {
+        var encodedReturnUrl = Uri.EscapeDataString(ReturnUrl);
+        Navigation.NavigateTo($"Account/Login?returnUrl={encodedReturnUrl}");
+    }
+}

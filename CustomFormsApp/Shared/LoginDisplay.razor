@@ -1,0 +1,108 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using CustomFormsApp.Pages.Account
+@using CustomFormsApp.Services
+@using CustomFormsApp.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject ThemeService ThemeService
+
+<div class="login-display d-flex align-items-center gap-2">
+    <!-- Language Selector -->
+    <select id="languageSelector"
+            aria-label="Select Language" 
+            class="form-select form-select-sm"
+            @onchange="OnLanguageChanged">
+        <option value="en-US" selected="@(currentLanguage == "en-US")">English</option>
+        <option value="es-ES" selected="@(currentLanguage == "es-ES")">Español</option>
+    </select>
+</div>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="auth-display d-flex align-items-center gap-2 mt-2">
+            <span id="welcomeMessage" class="text-muted small">Welcome, @context.User.Identity?.Name</span>
+            <button id="logoutButton" 
+                    @onclick="BeginSignOut" 
+                    class="btn btn-sm btn-outline-danger"
+                    aria-label="Log out">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </button>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="auth-display d-flex gap-2 mt-2">
+            <button id="loginButton"
+                    @onclick="NavigateToLogin" 
+                    class="btn btn-sm btn-outline-primary"
+                    aria-label="Log in">
+                <i class="bi bi-box-arrow-in-right"></i> Login
+            </button>
+            <button id="registerButton"
+                    @onclick="NavigateToRegister" 
+                    class="btn btn-sm btn-outline-success"
+                    aria-label="Register">
+                <i class="bi bi-person-plus"></i> Register
+            </button>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string currentLanguage = "en-US";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize language from localStorage
+        try
+        {
+            var savedLanguage = await JSRuntime.InvokeAsync<string>("getLanguage");
+            if (!string.IsNullOrEmpty(savedLanguage))
+            {
+                currentLanguage = savedLanguage;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error getting language: {ex.Message}");
+        }
+    }
+
+    private async Task OnLanguageChanged(ChangeEventArgs e)
+    {
+        currentLanguage = e.Value?.ToString() ?? "en-US";
+        await ChangeLanguage();
+    }
+
+    private async Task ChangeLanguage()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("setLanguage", currentLanguage);
+            NavigationManager.NavigateTo($"?culture={currentLanguage}", forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error setting language: {ex.Message}");
+        }
+    }
+
+    private void NavigateToLogin()
+    {
+        NavigationManager.NavigateTo("Identity/Account/Login");
+    }
+
+    private void NavigateToRegister()
+    {
+        NavigationManager.NavigateTo("Identity/Account/Register");
+    }
+
+    private async Task BeginSignOut()
+    {
+        await SignInManager.SignOutAsync();
+        NavigationManager.NavigateTo("/");
+    }
+}

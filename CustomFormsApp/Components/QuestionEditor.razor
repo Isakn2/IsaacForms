@@ -1,0 +1,37 @@
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Data.Enums
+
+<div class="question-editor mb-3 p-3 border rounded">
+    <div class="d-flex justify-content-between mb-2">
+        <select @bind="questionType">
+            <option value="@QuestionType.SingleLineText">Single Line</option>
+            <option value="@QuestionType.MultiLineText">Multi Line</option>
+            <option value="@QuestionType.Number">Number</option>
+            <option value="@QuestionType.Checkbox">Checkbox</option>
+        </select>
+        <button class="btn btn-sm btn-danger" @onclick="() => OnRemove.InvokeAsync(Question)">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+    
+    <input type="text" class="form-control mb-2" 
+           @bind="Question.Text" 
+           placeholder="Question text" />
+           
+    @if (Question.Type == QuestionType.Checkbox)
+    {
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" disabled>
+            <label class="form-check-label">Checkbox option</label>
+        </div>
+    }
+</div>
+
+@code {
+    private QuestionType questionType = QuestionType.SingleLineText;
+    [Parameter]
+    public CustomFormsApp.Data.Models.Question Question { get; set; } = new(); // Explicit namespace
+
+    [Parameter]
+    public EventCallback<CustomFormsApp.Data.Models.Question> OnRemove { get; set; } // Explicit namespace
+}

@@ -34,6 +34,9 @@ namespace CustomFormsApp.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CreatorId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("DisplayName")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -80,12 +83,20 @@ namespace CustomFormsApp.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatorId")
+                        .HasDatabaseName("IX_User_CreatorId");
+
+                    b.HasIndex("DisplayName")
+                        .HasDatabaseName("IX_User_DisplayName");
+
                     b.HasIndex("NormalizedEmail")
-                        .HasDatabaseName("EmailIndex");
+                        .IsUnique()
+                        .HasDatabaseName("IX_User_Email")
+                        .HasFilter("[NormalizedEmail] IS NOT NULL");
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
-                        .HasDatabaseName("UserNameIndex")
+                        .HasDatabaseName("IX_User_Username")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
@@ -127,10 +138,6 @@ namespace CustomFormsApp.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AuthorId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -138,6 +145,10 @@ namespace CustomFormsApp.Migrations
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatorId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime?>("DeletedDate")
                         .HasColumnType("datetime2");
@@ -148,15 +159,62 @@ namespace CustomFormsApp.Migrations
                     b.Property<int>("TemplateId")
                         .HasColumnType("int");
 
-                    b.HasKey("Id");
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
-                    b.HasIndex("AuthorId");
+                    b.HasKey("Id");
 
                     b.HasIndex("CreatedDate");
 
+                    b.HasIndex("CreatorId");
+
+                    b.HasIndex("IsDeleted");
+
                     b.HasIndex("TemplateId");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("Comments");
+                });
+
+            modelBuilder.Entity("CustomFormsApp.Data.Models.Form", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatorId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("TemplateId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatorId");
+
+                    b.HasIndex("TemplateId");
+
+                    b.ToTable("Forms");
                 });
 
             modelBuilder.Entity("CustomFormsApp.Data.Models.FormResponse", b =>
@@ -167,23 +225,23 @@ namespace CustomFormsApp.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("RespondentId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<DateTime>("SubmittedDate")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("TemplateId")
                         .HasColumnType("int");
 
-                    b.HasKey("Id");
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
-                    b.HasIndex("RespondentId");
+                    b.HasKey("Id");
 
                     b.HasIndex("SubmittedDate");
 
                     b.HasIndex("TemplateId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("FormResponses");
                 });
@@ -214,13 +272,23 @@ namespace CustomFormsApp.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CreatedById")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("FormId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsRequired")
                         .HasColumnType("bit");
 
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
-                    b.Property<int>("TemplateId")
+                    b.Property<int?>("TemplateId")
                         .HasColumnType("int");
 
                     b.Property<string>("Text")
@@ -228,10 +296,20 @@ namespace CustomFormsApp.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
+                    b.Property<string>("Topic")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("FormId");
 
                     b.HasIndex("Order");
 
@@ -253,6 +331,9 @@ namespace CustomFormsApp.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("Topic")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
@@ -273,6 +354,7 @@ namespace CustomFormsApp.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatorId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime?>("DeletedDate")
@@ -302,6 +384,10 @@ namespace CustomFormsApp.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("Topic")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTime>("UpdatedDate")
                         .HasColumnType("datetime2");
 
@@ -311,11 +397,11 @@ namespace CustomFormsApp.Migrations
 
                     b.HasIndex("CreatorId");
 
+                    b.HasIndex("IsDeleted");
+
                     b.HasIndex("IsPublic");
 
                     b.HasIndex("Title", "Description");
-
-                    SqlServerIndexBuilderExtensions.IsClustered(b.HasIndex("Title", "Description"), false);
 
                     b.ToTable("Templates");
                 });
@@ -327,6 +413,9 @@ namespace CustomFormsApp.Migrations
 
                     b.Property<string>("UserId")
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("GrantedDate")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("TemplateId", "UserId");
 
@@ -430,12 +519,10 @@ namespace CustomFormsApp.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ProviderKey")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ProviderDisplayName")
                         .HasColumnType("nvarchar(max)");
@@ -472,12 +559,10 @@ namespace CustomFormsApp.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("LoginProvider")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Name")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Value")
                         .HasColumnType("nvarchar(max)");
@@ -487,18 +572,27 @@ namespace CustomFormsApp.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("CustomFormsApp.Data.ApplicationUser", b =>
+                {
+                    b.HasOne("CustomFormsApp.Data.ApplicationUser", "Creator")
+                        .WithMany("CreatedUsers")
+                        .HasForeignKey("CreatorId");
+
+                    b.Navigation("Creator");
+                });
+
             modelBuilder.Entity("CustomFormsApp.Data.Models.Answer", b =>
                 {
                     b.HasOne("CustomFormsApp.Data.Models.Question", "Question")
-                        .WithMany()
+                        .WithMany("Answers")
                         .HasForeignKey("QuestionId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("CustomFormsApp.Data.Models.FormResponse", "Response")
                         .WithMany("Answers")
                         .HasForeignKey("ResponseId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Question");
@@ -508,10 +602,10 @@ namespace CustomFormsApp.Migrations
 
             modelBuilder.Entity("CustomFormsApp.Data.Models.Comment", b =>
                 {
-                    b.HasOne("CustomFormsApp.Data.ApplicationUser", "Author")
-                        .WithMany("Comments")
-                        .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                    b.HasOne("CustomFormsApp.Data.ApplicationUser", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatorId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("CustomFormsApp.Data.Models.Template", "Template")
@@ -520,28 +614,54 @@ namespace CustomFormsApp.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Author");
+                    b.HasOne("CustomFormsApp.Data.ApplicationUser", "User")
+                        .WithMany("Comments")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Creator");
+
+                    b.Navigation("Template");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CustomFormsApp.Data.Models.Form", b =>
+                {
+                    b.HasOne("CustomFormsApp.Data.ApplicationUser", "Creator")
+                        .WithMany("CreatedForms")
+                        .HasForeignKey("CreatorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CustomFormsApp.Data.Models.Template", "Template")
+                        .WithMany()
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Creator");
 
                     b.Navigation("Template");
                 });
 
             modelBuilder.Entity("CustomFormsApp.Data.Models.FormResponse", b =>
                 {
-                    b.HasOne("CustomFormsApp.Data.ApplicationUser", "Respondent")
-                        .WithMany("FormResponses")
-                        .HasForeignKey("RespondentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("CustomFormsApp.Data.Models.Template", "Template")
                         .WithMany("Responses")
                         .HasForeignKey("TemplateId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Respondent");
+                    b.HasOne("CustomFormsApp.Data.ApplicationUser", "User")
+                        .WithMany("FormResponses")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Template");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("CustomFormsApp.Data.Models.Like", b =>
@@ -549,13 +669,13 @@ namespace CustomFormsApp.Migrations
                     b.HasOne("CustomFormsApp.Data.Models.Template", "Template")
                         .WithMany("Likes")
                         .HasForeignKey("TemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("CustomFormsApp.Data.ApplicationUser", "User")
                         .WithMany("Likes")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Template");
@@ -565,11 +685,24 @@ namespace CustomFormsApp.Migrations
 
             modelBuilder.Entity("CustomFormsApp.Data.Models.Question", b =>
                 {
+                    b.HasOne("CustomFormsApp.Data.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById");
+
+                    b.HasOne("CustomFormsApp.Data.Models.Form", "Form")
+                        .WithMany("Questions")
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("CustomFormsApp.Data.Models.Template", "Template")
                         .WithMany("Questions")
                         .HasForeignKey("TemplateId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Form");
 
                     b.Navigation("Template");
                 });
@@ -578,7 +711,9 @@ namespace CustomFormsApp.Migrations
                 {
                     b.HasOne("CustomFormsApp.Data.ApplicationUser", "Creator")
                         .WithMany("CreatedTemplates")
-                        .HasForeignKey("CreatorId");
+                        .HasForeignKey("CreatorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Creator");
                 });
@@ -588,13 +723,13 @@ namespace CustomFormsApp.Migrations
                     b.HasOne("CustomFormsApp.Data.Models.Template", "Template")
                         .WithMany("RestrictedAccess")
                         .HasForeignKey("TemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("CustomFormsApp.Data.ApplicationUser", "User")
-                        .WithMany()
+                        .WithMany("TemplateAccesses")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Template");
@@ -613,7 +748,7 @@ namespace CustomFormsApp.Migrations
                     b.HasOne("CustomFormsApp.Data.Models.Template", "Template")
                         .WithMany("TemplateTags")
                         .HasForeignKey("TemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Tag");
@@ -676,14 +811,30 @@ namespace CustomFormsApp.Migrations
                 {
                     b.Navigation("Comments");
 
+                    b.Navigation("CreatedForms");
+
                     b.Navigation("CreatedTemplates");
+
+                    b.Navigation("CreatedUsers");
 
                     b.Navigation("FormResponses");
 
                     b.Navigation("Likes");
+
+                    b.Navigation("TemplateAccesses");
+                });
+
+            modelBuilder.Entity("CustomFormsApp.Data.Models.Form", b =>
+                {
+                    b.Navigation("Questions");
                 });
 
             modelBuilder.Entity("CustomFormsApp.Data.Models.FormResponse", b =>
+                {
+                    b.Navigation("Answers");
+                });
+
+            modelBuilder.Entity("CustomFormsApp.Data.Models.Question", b =>
                 {
                     b.Navigation("Answers");
                 });

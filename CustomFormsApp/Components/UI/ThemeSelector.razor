@@ -1,0 +1,63 @@
+@using CustomFormsApp.Components.UI
+@inject IJSRuntime JSRuntime
+
+<div class="theme-selector">
+    <select value="@selectedTheme" @onchange="OnThemeChanged" class="form-select form-select-sm">
+        <option value="light">☀️ Light</option>
+        <option value="dark">🌙 Dark</option>
+    </select>
+</div>
+
+@code {
+    private string selectedTheme = "light";
+
+    [Parameter]
+    public string CurrentTheme { get; set; } = "light";
+
+    [Parameter]
+    public EventCallback<string> CurrentThemeChanged { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Get theme from localStorage via our JS method
+            var savedTheme = await JSRuntime.InvokeAsync<string>("getTheme");
+            selectedTheme = !string.IsNullOrEmpty(savedTheme) ? savedTheme : "light";
+            
+            // If the theme from localStorage differs from what parent provided, update parent
+            if (selectedTheme != CurrentTheme && CurrentThemeChanged.HasDelegate)
+            {
+                await CurrentThemeChanged.InvokeAsync(selectedTheme);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading theme: {ex.Message}");
+            selectedTheme = CurrentTheme;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Keep the selected theme in sync when parent changes it
+        if (CurrentTheme != selectedTheme)
+        {
+            selectedTheme = CurrentTheme;
+        }
+    }
+
+    private async Task OnThemeChanged(ChangeEventArgs e)
+    {
+        selectedTheme = e.Value?.ToString() ?? "light";
+        
+        // Use the JS method from our site.js file
+        await JSRuntime.InvokeVoidAsync("setTheme", selectedTheme);
+        
+        // Notify parent component
+        if (CurrentThemeChanged.HasDelegate)
+        {
+            await CurrentThemeChanged.InvokeAsync(selectedTheme);
+        }
+    }
+}

@@ -1,0 +1,28 @@
+<!-- LanguageSwitcher.razor -->
+<select @bind="CurrentLanguage">
+    <option value="en-US">English</option>
+    <option value="es-ES">Español</option>
+</select>
+
+@code {
+    [Inject] NavigationManager NavManager { get; set; } = null!; // Initialized with null-forgiving operator
+
+    private string _currentLanguage = "en-US";
+    public string CurrentLanguage
+    {
+        get => _currentLanguage;
+        set
+        {
+            if (_currentLanguage != value)
+            {
+                _currentLanguage = value;
+                ChangeLanguage(value);
+            }
+        }
+    }
+
+    private void ChangeLanguage(string newLang)
+    {
+        NavManager.NavigateTo($"?culture={newLang}", forceLoad: true);
+    }
+}

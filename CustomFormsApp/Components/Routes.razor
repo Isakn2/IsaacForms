@@ -1,11 +1,52 @@
 ﻿@using CustomFormsApp.Components.Account.Shared
-<Router AppAssembly="typeof(Program).Assembly">
-    <Found Context="routeData">
-        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
-            <NotAuthorized>
-                <RedirectToLogin />
-            </NotAuthorized>
-        </AuthorizeRouteView>
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>
+@using CustomFormsApp.Pages.Account
+@using CustomFormsApp.Components.Layout
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Authorization
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Program).Assembly" 
+            AdditionalAssemblies="new[] { typeof(Login).Assembly }">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        <RedirectToLogin ReturnUrl="@NavigationManager.Uri" />
+                    }
+                    else
+                    {
+                        <div class="alert alert-danger m-3">
+                            <i class="bi bi-shield-lock"></i> 
+                            You don't have permission to view this page.
+                        </div>
+                    }
+                </NotAuthorized>
+                <Authorizing>
+                    <div class="loading-message p-4 text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Checking permissions...</p>
+                    </div>
+                </Authorizing>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <div class="not-found p-5 text-center">
+                    <h1><i class="bi bi-map text-danger"></i> 404 - Page Not Found</h1>
+                    <p class="lead">The requested URL was not found on this server.</p>
+                    <NavLink href="/" class="btn btn-primary mt-3">
+                        <i class="bi bi-house-door"></i> Return Home
+                    </NavLink>
+                </div>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    [Inject] private NavigationManager NavigationManager { get; set; } = null!;
+}

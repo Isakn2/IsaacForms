@@ -1,0 +1,247 @@
+@page "/form-builder"
+@attribute [Authorize]
+@inject FormTemplateService FormService
+@inject NavigationManager Navigation
+@inject ILogger<FormBuilder> Logger
+@using CustomFormsApp.Data.Models
+@using Microsoft.AspNetCore.Authorization
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Form Builder</PageTitle>
+
+<div class="container mt-4">
+    <EditForm Model="@currentForm" OnValidSubmit="@SaveForm">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3><i class="bi bi-pencil-square me-2"></i>Form Builder</h3>
+            <button type="submit" class="btn btn-success" disabled="@isSaving">
+                <i class="bi bi-save me-1"></i>
+                @(isSaving ? "Saving..." : "Save Form")
+            </button>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Form Title</label>
+                    <InputText @bind-Value="currentForm.Name" class="form-control" />
+                    <ValidationMessage For="@(() => currentForm.Name)" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <InputTextArea @bind-Value="currentForm.Description" class="form-control" rows="3" />
+                </div>
+            </div>
+        </div>
+
+        <div class="questions-container">
+            @if (questions.Count == 0 && !isLoading)
+            {
+                <div class="alert alert-info">
+                    No questions added yet. Click "Add Question" to get started.
+                </div>
+            }
+            else if (isLoading)
+            {
+                <div class="text-center my-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }
+
+            @foreach (var (question, index) in questions.Select((q, i) => (q, i + 1)))
+            {
+                <div class="question-item mb-3 p-3 border rounded bg-white"
+                     draggable="true"
+                     @key="question.Id"
+                     @ondragstart="() => OnDragStart(question)"
+                     @ondragover:preventDefault
+                     @ondrop="() => OnDrop(question)">
+
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-grip-vertical me-2 drag-handle" style="cursor: move;"></i>
+                        <span class="badge bg-secondary me-2">@index</span>
+                        <button @onclick="() => DeleteQuestion(question)"
+                                class="btn btn-sm btn-danger ms-auto"
+                                title="Delete question">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+
+                    <div class="mb-3">
+                        <InputText @bind-Value="question.Text" 
+                            class="form-control" 
+                            placeholder="Enter question text" />
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Question Type</label>
+                            <select @bind="question.Type" class="form-select">
+                                @foreach (QuestionType type in Enum.GetValues(typeof(QuestionType)))
+                                {
+                                    <option value="@type">@type.ToString()</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Required</label>
+                            <div class="form-check form-switch">
+                                <input type="checkbox" class="form-check-input" 
+                                       @bind="question.IsRequired" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
+            <button type="button" class="btn btn-primary me-md-2" @onclick="AddQuestion">
+                <i class="bi bi-plus-circle me-1"></i> Add Question
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private Form currentForm = new()
+    {
+        Id = 0, 
+        Name = "New Form",
+        Description = string.Empty,
+        CreatedDate = DateTime.UtcNow
+    };
+
+    private List<Question> questions = new();
+    private Question? draggedQuestion;
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? errorMessage = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var existingForm = await FormService.GetCurrentFormAsync();
+            if (existingForm != null)
+            {
+                currentForm = existingForm;
+                questions = await FormService.GetQuestionsAsync(currentForm.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to load form data";
+            Logger.LogError(ex, "Error loading form builder data");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AddQuestion()
+    {
+        var newQuestion = new Question
+        {
+            Text = "New Question",
+            Type = QuestionType.SingleLineText,
+            Order = questions.Count + 1,
+            FormId = currentForm.Id
+        };
+        
+        questions.Add(newQuestion);
+        await Task.CompletedTask;
+        
+        // Scroll to the new question (if needed)
+        await Task.Delay(50); // Small delay to ensure DOM update
+        await JSRuntime.InvokeVoidAsync("scrollToBottom");
+    }
+
+    private async Task DeleteQuestion(Question question)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Delete this question?"))
+            return;
+
+        try 
+        {
+            if (question.Id != 0) 
+            {
+                await FormService.DeleteQuestionAsync(question.Id);
+            }
+            questions.Remove(question);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to delete question";
+            Logger.LogError(ex, "Error deleting question");
+        }
+    }
+
+    private async Task SaveForm()
+    {
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            await UpdateQuestionOrders();
+            var savedFormId = await FormService.SaveFormAsync(currentForm, questions);
+            currentForm.Id = savedFormId;
+            Navigation.NavigateTo($"/form-builder/{currentForm.Id}", forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to save form";
+            Logger.LogError(ex, "Error saving form");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void OnDragStart(Question question)
+    {
+        draggedQuestion = question;
+    }
+
+    private async Task OnDrop(Question targetQuestion)
+    {
+        if (draggedQuestion == null || draggedQuestion == targetQuestion)
+            return;
+
+        var fromIndex = questions.IndexOf(draggedQuestion);
+        var toIndex = questions.IndexOf(targetQuestion);
+
+        if (fromIndex >= 0 && toIndex >= 0)
+        {
+            questions.RemoveAt(fromIndex);
+            questions.Insert(toIndex, draggedQuestion);
+            
+            await UpdateQuestionOrders();
+        }
+    }
+
+    private async Task UpdateQuestionOrders()
+    {
+        for (int i = 0; i < questions.Count; i++)
+        {
+            questions[i].Order = i + 1;
+        }
+        
+        if (currentForm.Id > 0)
+        {
+            await FormService.UpdateQuestionOrderAsync(currentForm.Id, 
+                questions.Select(q => q.Id).ToList());
+        }
+    }
+}

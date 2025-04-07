@@ -1,43 +1,72 @@
-﻿@using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authentication
 @using CustomFormsApp.Data
+@using Microsoft.AspNetCore.Components
+@using Microsoft.Extensions.Logging
 
-@inject SignInManager<ApplicationUser> SignInManager
-@inject IdentityRedirectManager RedirectManager
-
-@if (externalLogins.Length == 0)
-{
-    <div>
-        <p>
-            There are no external authentication services configured. See this <a href="https://go.microsoft.com/fwlink/?LinkID=532715">article
-            about setting up this ASP.NET application to support logging in via external services</a>.
-        </p>
-    </div>
-}
-else
-{
-    <form class="form-horizontal" action="Account/PerformExternalLogin" method="post">
-        <div>
-            <AntiforgeryToken />
-            <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
-            <p>
-                @foreach (var provider in externalLogins)
-                {
-                    <button type="submit" class="btn btn-primary" name="provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">@provider.DisplayName</button>
-                }
-            </p>
-        </div>
-    </form>
-}
+<div class="external-login-picker">
+    @foreach (var provider in externalProviders)
+    {
+        <button class="btn btn-outline-secondary w-100 mb-2"
+                @onclick="() => ExternalLogin(provider.Name)"
+                disabled="@(isProcessing)">
+            @if (isProcessing && currentProvider == provider.Name)
+            {
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+            }
+            else
+            {
+                <i class="bi bi-box-arrow-in-right"></i>
+            }
+            Log in with @provider.DisplayName
+        </button>
+    }
+</div>
 
 @code {
-    private AuthenticationScheme[] externalLogins = [];
+    [Inject] private SignInManager<ApplicationUser> SignInManager { get; set; } = null!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = null!;
+    [Inject] private ILogger<ExternalLoginPicker> Logger { get; set; } = null!;
+    [Inject] private IHttpContextAccessor HttpContextAccessor { get; set; } = null!;
 
-    [SupplyParameterFromQuery]
-    private string? ReturnUrl { get; set; }
+    private IEnumerable<AuthenticationScheme> externalProviders = Array.Empty<AuthenticationScheme>();
+    private bool isProcessing;
+    private string? currentProvider;
 
     protected override async Task OnInitializedAsync()
     {
-        externalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).ToArray();
+        try
+        {
+            externalProviders = await SignInManager.GetExternalAuthenticationSchemesAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to get external authentication schemes");
+        }
+    }
+
+    private async Task ExternalLogin(string provider)
+    {
+        isProcessing = true;
+        currentProvider = provider;
+        
+        try
+        {
+            var redirectUrl = NavigationManager.ToAbsoluteUri("/Account/ExternalLoginCallback");
+            await HttpContextAccessor.HttpContext!.ChallengeAsync(
+                provider,
+                new AuthenticationProperties { RedirectUri = redirectUrl.ToString() });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "External authentication error");
+        }
+        finally
+        {
+            isProcessing = false;
+            currentProvider = null;
+            StateHasChanged();
+        }
     }
 }

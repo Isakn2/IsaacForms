@@ -1,0 +1,41 @@
+// ThemeInitializer.razor
+@inject IJSRuntime JSRuntime
+@inject ThemeService ThemeService
+@implements IDisposable
+
+@code {
+    private bool _initialized = false;
+    private IJSObjectReference? _module;
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            try
+            {
+                _initialized = true;
+                _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/themeManager.js");
+                var theme = await _module.InvokeAsync<string>("initializeTheme");
+                
+                // Update ThemeService without causing re-renders during initialization
+                if (!string.IsNullOrEmpty(theme) && theme != ThemeService.CurrentTheme)
+                {
+                    ThemeService.SetTheme(theme);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Theme initialization error: {ex.Message}");
+            }
+        }
+    }
+    
+    public void Dispose()
+    {
+        // Clean up JS module
+        if (_module != null)
+        {
+            _ = _module.DisposeAsync();
+        }
+    }
+}
