@@ -1,0 +1,210 @@
+.question-item[b-18pwdv12j6] {
+    transition: all 0.2s;
+}
+.question-header[b-18pwdv12j6] {
+    min-height: 48px;
+}
+.question-header:hover[b-18pwdv12j6] {
+    background-color: #f8f9fa;
+}
+.question-preview[b-18pwdv12j6] {
+    max-width: 70%;
+}
+.collapsed-labels[b-18pwdv12j6] {
+    max-width: 60%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.option-count[b-18pwdv12j6] {
+    font-size: 0.75rem;
+}
+.dragging[b-18pwdv12j6] {
+    opacity: 0.5;
+    border: 2px dashed #007bff !important;
+}
+.drag-target[b-18pwdv12j6] {
+    border: 2px dashed #007bff !important;
+    background-color: #f0f7ff !important;
+}
+.options-grid[b-18pwdv12j6] {
+    max-height: 300px;
+    overflow-y: auto;
+}
+.form-toolbar[b-18pwdv12j6] {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: white;
+    padding: 10px 0;
+    border-bottom: 1px solid #dee2e6;
+}
+@media (min-width: 992px) {
+    .options-grid[b-18pwdv12j6] {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-gap: 8px;
+    }
+}
+@media (max-width: 992px) {
+    .form-builder[b-18pwdv12j6] {
+        margin-left: 0 !important;
+    }
+}
+
+
+/* Checkbox styling */
+input[type="checkbox"][b-18pwdv12j6] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border: 1px solid #ced4da;
+    border-radius: 3px;
+    background-color: #fff;
+    position: relative;
+    vertical-align: middle;
+}
+
+input[type="checkbox"]:checked[b-18pwdv12j6] {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+input[type="checkbox"]:checked[b-18pwdv12j6]::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+input[type="checkbox"]:focus[b-18pwdv12j6] {
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Style for question type checkboxes specifically */
+.option-item .bi-square[b-18pwdv12j6] {
+    color: #6c757d;
+}
+
+.option-item .bi-check-square[b-18pwdv12j6] {
+    color: #0d6efd;
+}
+
+/* Override Blazor scoping for checkbox styling */
+:global(input.form-check-input)[b-18pwdv12j6],
+:global(input[type="checkbox"])[b-18pwdv12j6] {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    background-image: none !important;
+    width: 18px !important;
+    height: 18px !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 3px !important;
+    background-color: #fff !important;
+    position: relative !important;
+    cursor: pointer !important;
+    vertical-align: middle !important;
+    margin-top: 0 !important;
+}
+:global(input.form-check-input:checked)[b-18pwdv12j6],
+:global(input[type="checkbox"]:checked)[b-18pwdv12j6] {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+:global(input.form-check-input:checked::after)[b-18pwdv12j6],
+:global(input[type="checkbox"]:checked::after)[b-18pwdv12j6] {
+    content: "" !important;
+    position: absolute !important;
+    left: 6px !important;
+    top: 2px !important;
+    width: 5px !important;
+    height: 10px !important;
+    border: solid white !important;
+    border-width: 0 2px 2px 0 !important;
+    transform: rotate(45deg) !important;
+    display: block !important;
+}
+:global(input.form-check-input:focus)[b-18pwdv12j6],
+:global(input[type="checkbox"]:focus)[b-18pwdv12j6] {
+    outline: none !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+}
+
+/* Fix specifically for required checkboxes with complex IDs */
+input[type="checkbox"][id^="required-q-"][b-18pwdv12j6] {
+    width: 18px !important;
+    height: 18px !important;
+    cursor: pointer !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 3px !important;
+    background-color: #fff !important;
+    position: relative !important;
+    vertical-align: middle !important;
+}
+
+input[type="checkbox"][id^="required-q-"]:checked[b-18pwdv12j6] {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+
+input[type="checkbox"][id^="required-q-"]:checked[b-18pwdv12j6]::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 6px !important;
+    top: 2px !important;
+    width: 5px !important;
+    height: 10px !important;
+    border: solid white !important;
+    border-width: 0 2px 2px 0 !important;
+    transform: rotate(45deg) !important;
+    display: block !important;
+}
+
+/* Fix for isPublicCheck and isFormPublicCheck checkboxes */
+input[id="isPublicCheck"][b-18pwdv12j6], 
+input[id="isFormPublicCheck"][b-18pwdv12j6] {
+    width: 18px !important;
+    height: 18px !important;
+    cursor: pointer !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 3px !important;
+    background-color: #fff !important;
+    position: relative !important;
+    vertical-align: middle !important;
+}
+
+input[id="isPublicCheck"]:checked[b-18pwdv12j6], 
+input[id="isFormPublicCheck"]:checked[b-18pwdv12j6] {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+
+input[id="isPublicCheck"]:checked[b-18pwdv12j6]::after, 
+input[id="isFormPublicCheck"]:checked[b-18pwdv12j6]::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 6px !important;
+    top: 2px !important;
+    width: 5px !important;
+    height: 10px !important;
+    border: solid white !important;
+    border-width: 0 2px 2px 0 !important;
+    transform: rotate(45deg) !important;
+    display: block !important;
+}

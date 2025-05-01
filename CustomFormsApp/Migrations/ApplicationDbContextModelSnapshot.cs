@@ -18,7 +18,7 @@ namespace CustomFormsApp.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.3")
+                .HasAnnotation("ProductVersion", "8.0.6")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -122,7 +122,8 @@ namespace CustomFormsApp.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("TemplateId")
+                    b.Property<int?>("TemplateId")
+                        .IsRequired()
                         .HasColumnType("integer");
 
                     b.Property<string>("Text")
@@ -260,7 +261,7 @@ namespace CustomFormsApp.Migrations
                     b.Property<bool>("IsRequired")
                         .HasColumnType("boolean");
 
-                    b.PrimitiveCollection<List<string>>("Options")
+                    b.Property<List<string>>("Options")
                         .HasColumnType("text[]");
 
                     b.Property<int>("Order")
