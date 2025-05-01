@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
-    publishDirectory: ./bin/Release/net8.0/publish
+    rootDirectory: ./CustomFormsApp
     envVars:
       - key: DEFAULT_CONNECTION
         fromDatabase:
@@ -31,11 +31,7 @@ services:
       - key: LANG
         value: "en_US.UTF-8"
     healthCheckPath: /
-    # We're using our Dockerfile which includes the start script
-    # So we don't need these commands
-    # buildCommand: dotnet publish -c Release
-    # startCommand: dotnet CustomFormsApp.dll
-
+    
 databases:
   - name: customforms-db
     databaseName: customforms
