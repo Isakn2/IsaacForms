@@ -4,6 +4,7 @@ services:
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
+    publishDirectory: ./bin/Release/net8.0/publish
     envVars:
       - key: DEFAULT_CONNECTION
         fromDatabase:
