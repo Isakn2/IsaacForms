@@ -9,11 +9,11 @@ COPY ["CustomFormsApp.csproj", "."]
 RUN dotnet restore "CustomFormsApp.csproj"
 COPY . .
 RUN dotnet build "CustomFormsApp.csproj" -c Release -o /app/build
+# Install EF Core tools in the build stage
+RUN dotnet tool install --global dotnet-ef
 
 FROM build AS publish
 RUN dotnet publish "CustomFormsApp.csproj" -c Release -o /app/publish
-# Install EF Core tools in the build stage
-RUN dotnet tool install --global dotnet-ef
 
 FROM base AS final
 WORKDIR /app
