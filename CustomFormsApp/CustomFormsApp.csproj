@@ -5,12 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>aspnet-CustomFormsApp-7f0cadf3-726e-435b-8fac-293f93d4d4f5</UserSecretsId>
-    <!-- Add these for better Docker support -->
-    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-    <DockerfileContext>.</DockerfileContext>
-    <!-- Optimizations -->
-    <PublishTrimmed>true</PublishTrimmed>
-    <PublishReadyToRun>true</PublishReadyToRun>
+    <!-- Disable trimming since Razor Pages and Blazor don't fully support it -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,6 +21,7 @@
     <PackageReference Include="Bogus" Version="35.6.2" />
     <PackageReference Include="Clerk.Net" Version="1.13.0" />
     <PackageReference Include="Markdig" Version="0.40.0" />
+    <!-- Use consistent ASP.NET Core 8.0 versions -->
     <PackageReference Include="Microsoft.AspNetCore.Components" Version="8.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="8.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Forms" Version="8.0.6" />
@@ -31,7 +29,6 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="8.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="8.0.6" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.3.1" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="8.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.6" />
