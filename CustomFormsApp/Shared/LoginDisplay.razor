@@ -1,108 +1,307 @@
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Identity
-@using CustomFormsApp.Pages.Account
+@using Microsoft.AspNetCore.Components.Web
 @using CustomFormsApp.Services
-@using CustomFormsApp.Data
-
-@inject UserManager<ApplicationUser> UserManager
-@inject SignInManager<ApplicationUser> SignInManager
+@using Microsoft.AspNetCore.Components
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ThemeService ThemeService
+@inject LocalizationService LocalizationService
+@inject ClerkAuthService ClerkAuth
+@implements IAsyncDisposable
 
-<div class="login-display d-flex align-items-center gap-2">
+<div class="d-flex align-items-center">
     <!-- Language Selector -->
-    <select id="languageSelector"
-            aria-label="Select Language" 
-            class="form-select form-select-sm"
-            @onchange="OnLanguageChanged">
-        <option value="en-US" selected="@(currentLanguage == "en-US")">English</option>
-        <option value="es-ES" selected="@(currentLanguage == "es-ES")">Español</option>
-    </select>
+    <div class="dropdown me-3">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center" 
+                type="button" 
+                id="languageDropdown" 
+                data-bs-toggle="dropdown" 
+                aria-expanded="false"
+                disabled="@_isLoading">
+            <i class="bi bi-globe2 me-1"></i>
+            <span class="d-none d-sm-inline">@GetLanguageDisplayName(_currentLanguage)</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="languageDropdown">
+            <li><h6 class="dropdown-header">Select Language</h6></li>
+            @foreach (var lang in _supportedLanguages)
+            {
+                <li>
+                    <button class="dropdown-item @(lang.Code == _currentLanguage ? "active" : "")" 
+                            @onclick='() => SetLanguage(lang.Code)'
+                            disabled="@_isLoading">
+                        <span class="me-2">@lang.Flag</span> @lang.Name
+                    </button>
+                </li>
+            }
+        </ul>
+    </div>
+
+    <!-- Theme Toggle -->
+    <button @onclick="ToggleTheme" 
+            class="btn btn-sm btn-outline-secondary me-3" 
+            title="Toggle theme"
+            disabled="@_isLoading">
+        <i class="bi @(_themeIcon)"></i>
+        <span class="visually-hidden">Toggle theme</span>
+    </button>
+
+    <!-- Auth Section -->
+    <AuthorizeView>
+        <Authorized>
+            <div class="dropdown">
+                <button class="btn btn-outline-primary btn-sm dropdown-toggle d-flex align-items-center" 
+                        type="button" 
+                        id="userDropdown" 
+                        data-bs-toggle="dropdown" 
+                        aria-expanded="false"
+                        disabled="@_isLoading">
+                    @if (_isLoadingUser)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-person-circle me-1"></i>
+                    }
+                    <span class="d-none d-md-inline">@_userDisplayName</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="userDropdown">
+                    <li>
+                        <div class="dropdown-item-text">
+                            <div class="fw-bold">@_userFullName</div>
+                            <div class="small text-muted">@_userEmail</div>
+                        </div>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <NavLink class="dropdown-item" href="/account/profile" Match="NavLinkMatch.Prefix">
+                            <i class="bi bi-person me-2"></i> My Profile
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink class="dropdown-item" href="/forms" Match="NavLinkMatch.Prefix">
+                            <i class="bi bi-file-earmark-text me-2"></i> My Forms
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink class="dropdown-item" href="/account/preferences" Match="NavLinkMatch.Prefix">
+                            <i class="bi bi-gear me-2"></i> Preferences
+                        </NavLink>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <button class="dropdown-item text-danger" @onclick="BeginSignOut" disabled="@_isSigningOut">
+                            @if (_isSigningOut)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-box-arrow-right me-2"></i>
+                            }
+                            Sign Out
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <div class="d-flex gap-2">
+                <NavLink href="/Account/Login" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                </NavLink>
+                <NavLink href="/Account/Register" class="btn btn-primary btn-sm d-none d-sm-inline-flex">
+                    <i class="bi bi-person-plus me-1"></i> Register
+                </NavLink>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
 </div>
 
-<AuthorizeView>
-    <Authorized>
-        <div class="auth-display d-flex align-items-center gap-2 mt-2">
-            <span id="welcomeMessage" class="text-muted small">Welcome, @context.User.Identity?.Name</span>
-            <button id="logoutButton" 
-                    @onclick="BeginSignOut" 
-                    class="btn btn-sm btn-outline-danger"
-                    aria-label="Log out">
-                <i class="bi bi-box-arrow-right"></i> Logout
-            </button>
-        </div>
-    </Authorized>
-    <NotAuthorized>
-        <div class="auth-display d-flex gap-2 mt-2">
-            <button id="loginButton"
-                    @onclick="NavigateToLogin" 
-                    class="btn btn-sm btn-outline-primary"
-                    aria-label="Log in">
-                <i class="bi bi-box-arrow-in-right"></i> Login
-            </button>
-            <button id="registerButton"
-                    @onclick="NavigateToRegister" 
-                    class="btn btn-sm btn-outline-success"
-                    aria-label="Register">
-                <i class="bi bi-person-plus"></i> Register
-            </button>
-        </div>
-    </NotAuthorized>
-</AuthorizeView>
-
 @code {
-    private string currentLanguage = "en-US";
+    private record LanguageOption(string Code, string Name, string Flag);
+    
+    private readonly LanguageOption[] _supportedLanguages = new[]
+    {
+        new LanguageOption("en-US", "English", "🇺🇸"),
+        new LanguageOption("es-ES", "Español", "🇪🇸")
+    };
+    
+    private string _currentLanguage = "en-US";
+    private string _themeIcon = "bi-moon";
+    private string _userDisplayName = "User";
+    private string _userFullName = "";
+    private string _userEmail = "";
+    private bool _isLoading = true;
+    private bool _isLoadingUser = true;
+    private bool _isSigningOut = false;
+    private DotNetObjectReference<LoginDisplay>? _dotNetRef;
+    
 
     protected override async Task OnInitializedAsync()
     {
-        // Initialize language from localStorage
+        _dotNetRef = DotNetObjectReference.Create(this); // Keep if needed
+        
         try
         {
-            var savedLanguage = await JSRuntime.InvokeAsync<string>("getLanguage");
-            if (!string.IsNullOrEmpty(savedLanguage))
+            // Initialize language
+            await LocalizationService.InitializeAsync();
+            _currentLanguage = LocalizationService.CurrentLanguage;
+            
+            // Subscribe to language changes
+            LocalizationService.LanguageChanged += OnLanguageChanged;
+            
+            // Initialize theme
+            _themeIcon = ThemeService.CurrentTheme == "dark" ? "bi-sun" : "bi-moon";
+
+            // Subscribe to auth changes
+            ClerkAuth.UserSignedIn += OnUserStateChanged;
+            ClerkAuth.UserSignedOut += HandleUserSignedOut; // Use separate handler
+            
+            // Initial user info load
+            UpdateUserInfo(); 
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"LoginDisplay Init Error: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnLanguageChanged()
+    {
+        _currentLanguage = LocalizationService.CurrentLanguage;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // Handler for Sign In
+    private void OnUserStateChanged(ClerkUserDto? user)
+    {
+        InvokeAsync(() =>
+        {
+            UpdateUserInfo();
+            StateHasChanged(); // Ensure UI updates after info change
+        });
+    }
+
+    // Handler for Sign Out
+    private void HandleUserSignedOut()
+    {
+        OnUserStateChanged(null); // Call common logic
+    }
+
+    // Renamed back to synchronous
+    private void UpdateUserInfo()
+    {
+        _isLoadingUser = true;
+        StateHasChanged(); // Indicate loading user info
+
+        try
+        {
+            var user = ClerkAuth.CurrentUser; // Get current user from service
+            if (user != null)
             {
-                currentLanguage = savedLanguage;
+                _userFullName = $"{user.FirstName} {user.LastName}".Trim();
+                _userEmail = user.Email ?? string.Empty;
+                _userDisplayName = string.IsNullOrWhiteSpace(_userFullName) ? (user.Username ?? user.Id) : _userFullName;
+            }
+            else
+            {
+                _userDisplayName = "User";
+                _userFullName = "";
+                _userEmail = "";
             }
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error getting language: {ex.Message}");
+            Console.WriteLine($"Error updating user info: {ex.Message}");
+            // Handle error state if necessary
+        }
+        finally
+        {
+            _isLoadingUser = false;
+            _isLoading = false; // Also set general loading to false
+            // StateHasChanged(); // No need to call here, called in OnUserStateChanged wrapper
         }
     }
 
-    private async Task OnLanguageChanged(ChangeEventArgs e)
+    private async Task SetLanguage(string language)
     {
-        currentLanguage = e.Value?.ToString() ?? "en-US";
-        await ChangeLanguage();
-    }
+        if (_currentLanguage == language) return;
+        
+        _isLoading = true;
+        StateHasChanged();
 
-    private async Task ChangeLanguage()
-    {
         try
         {
-            await JSRuntime.InvokeVoidAsync("setLanguage", currentLanguage);
-            NavigationManager.NavigateTo($"?culture={currentLanguage}", forceLoad: false);
+            // Use LocalizationService instead of direct JS call
+            await LocalizationService.SetLanguageAsync(language);
+            
+            // Reload only when necessary, but don't use forceLoad for regular navigation
+            // A better approach would be to handle this in the LocalizationService
+            _currentLanguage = language;
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error setting language: {ex.Message}");
+            Console.WriteLine($"Language change error: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
         }
     }
 
-    private void NavigateToLogin()
-    {
-        NavigationManager.NavigateTo("Identity/Account/Login");
-    }
+    private string GetLanguageDisplayName(string code) 
+        => _supportedLanguages.FirstOrDefault(l => l.Code == code)?.Name ?? "English";
 
-    private void NavigateToRegister()
+    private void ToggleTheme() 
     {
-        NavigationManager.NavigateTo("Identity/Account/Register");
+        try
+        {
+            var newTheme = ThemeService.CurrentTheme == "dark" ? "light" : "dark";
+            ThemeService.SetTheme(newTheme); // Remove await
+            _themeIcon = newTheme == "dark" ? "bi-sun" : "bi-moon";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Theme toggle error: {ex.Message}");
+        }
     }
-
     private async Task BeginSignOut()
     {
-        await SignInManager.SignOutAsync();
-        NavigationManager.NavigateTo("/");
+        _isSigningOut = true;
+        StateHasChanged();
+
+        try
+        {
+            await ClerkAuth.SignOutAsync();
+            // Navigation might happen automatically via Clerk redirect or event handling
+            // NavigationManager.NavigateTo("/", forceLoad: true); // May not be needed
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Sign out error: {ex.Message}");
+            _isSigningOut = false; // Reset on error
+            StateHasChanged();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Unsubscribe from language changes
+        LocalizationService.LanguageChanged -= OnLanguageChanged;
+        
+        // Unsubscribe from auth changes
+        ClerkAuth.UserSignedIn -= OnUserStateChanged;
+        ClerkAuth.UserSignedOut -= HandleUserSignedOut;
+
+        _dotNetRef?.Dispose(); // Dispose if created
+
+        await Task.Yield(); // Ensure proper async disposal
     }
 }

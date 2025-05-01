@@ -1,15 +1,16 @@
-@using Microsoft.AspNetCore.Identity
-@inject SignInManager<ApplicationUser> SignInManager
-@inject UserManager<ApplicationUser> UserManager
+@using CustomFormsApp.Services
+@inject ClerkAuthService ClerkAuth
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
 
 <ul class="navbar-nav">
-@if (SignInManager.IsSignedIn(User))
+@if (ClerkAuth.IsAuthenticated)
 {
     <li class="nav-item">
-        <a class="nav-link" href="/Account/Manage">Hello @UserManager.GetUserName(User)!</a>
+        <a class="nav-link" href="/Account/Manage">Hello @(ClerkAuth.CurrentUser?.FirstName ?? "User")!</a>
     </li>
     <li class="nav-item">
-        <form class="form-inline" action="/Account/Logout" method="post">
+        <form class="form-inline" id="logout-form" action="javascript:void(0);" method="post" 
+              onsubmit="event.preventDefault(); window.clerkInterop.signOut();">
             <button type="submit" class="nav-link btn btn-link">Logout</button>
         </form>
     </li>
@@ -17,7 +18,7 @@
 else
 {
     <li class="nav-item">
-        <a class="nav-link" href="/Account/Register">Register</a>
+        <a class="nav-link" href="/Account/Login?action=signup">Register</a>
     </li>
     <li class="nav-item">
         <a class="nav-link" href="/Account/Login">Login</a>

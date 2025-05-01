@@ -1,0 +1,136 @@
+@using CustomFormsApp.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject ILikeService LikeService
+@inject ICurrentUserService CurrentUserService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<LikeButton> Logger
+
+@if (TemplateId > 0)
+{
+    <button class="btn btn-sm like-button @(isLiked ? "btn-danger" : "btn-outline-danger") @(isProcessing ? "disabled" : "")"
+            @onclick="HandleLikeClick"
+            disabled="@(isProcessing || !isAuthenticated)"
+            title="@(isAuthenticated ? (isLiked ? "Unlike this template" : "Like this template") : "Log in to like")">
+
+        @if (isProcessing)
+        {
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        }
+        else
+        {
+            <i class="bi @(isLiked ? "bi-heart-fill" : "bi-heart")"></i>
+        }
+        <span class="like-count ms-1">@currentLikeCount</span>
+    </button>
+    @* Add error message display below the button *@
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-2 p-1 small" role="alert">@errorMessage</div>
+    }
+}
+else
+{
+    <!-- Optionally show a disabled placeholder if TemplateId is invalid -->
+    <button class="btn btn-sm btn-outline-secondary disabled">
+        <i class="bi bi-heart"></i> --
+    </button>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public int TemplateId { get; set; }
+
+    private int currentLikeCount;
+    private bool isLiked;
+    private bool isProcessing;
+    private bool isAuthenticated;
+    private string? currentUserId;
+    private string? errorMessage; // For potential error display
+
+    protected override async Task OnInitializedAsync()
+    {
+        isProcessing = true; // Start in loading state
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+
+        if (isAuthenticated)
+        {
+            currentUserId = CurrentUserService.GetUserId();
+        }
+
+        if (TemplateId > 0)
+        {
+            try
+            {
+                // Fetch initial state concurrently
+                var likeCountTask = LikeService.GetLikeCountAsync(TemplateId);
+                var userLikedTask = isAuthenticated && !string.IsNullOrEmpty(currentUserId)
+                                    ? LikeService.HasUserLikedAsync(TemplateId, currentUserId)
+                                    : Task.FromResult(false);
+
+                await Task.WhenAll(likeCountTask, userLikedTask);
+
+                currentLikeCount = await likeCountTask;
+                isLiked = await userLikedTask;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error initializing LikeButton for TemplateId {TemplateId}", TemplateId);
+                errorMessage = "Error loading like status.";
+                // Keep default state (0 likes, not liked)
+                currentLikeCount = 0;
+                isLiked = false;
+            }
+        }
+        else
+        {
+             Logger.LogWarning("LikeButton initialized with invalid TemplateId (0 or less).");
+             currentLikeCount = 0;
+             isLiked = false;
+        }
+
+        isProcessing = false;
+    }
+
+    private async Task HandleLikeClick()
+    {
+        if (isProcessing || !isAuthenticated || string.IsNullOrEmpty(currentUserId))
+        {
+            // Should not happen if button is disabled correctly, but double-check
+            Logger.LogWarning("Like button clicked while processing, not authenticated, or userId is null.");
+            return;
+        }
+
+        isProcessing = true;
+        errorMessage = null;
+        StateHasChanged(); // Show spinner
+
+        try
+        {
+            var (newIsLiked, newLikeCount) = await LikeService.ToggleLikeAsync(TemplateId, currentUserId);
+            isLiked = newIsLiked;
+            currentLikeCount = newLikeCount;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+             Logger.LogWarning(ex, "Unauthorized like attempt for TemplateId {TemplateId}", TemplateId);
+             errorMessage = "Authentication error."; // Or handle differently
+        }
+        catch (KeyNotFoundException ex)
+        {
+             Logger.LogWarning(ex, "Like attempt on non-existent TemplateId {TemplateId}", TemplateId);
+             errorMessage = "Template not found."; // Or disable button permanently?
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error toggling like for TemplateId {TemplateId} by User {UserId}", TemplateId, currentUserId);
+            errorMessage = "An error occurred.";
+            // Optionally revert UI state or retry? For now, just log and show error.
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged(); // Update UI with result or error state
+        }
+    }
+}

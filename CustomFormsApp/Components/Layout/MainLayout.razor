@@ -1,246 +1,204 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
-@using CustomFormsApp.Components.UI  
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Routing
 @using CustomFormsApp.Services
+@using Microsoft.Extensions.Logging
+@implements IDisposable
+
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ThemeService ThemeService
-@implements IDisposable
+@inject AuthenticationStateProvider AuthProvider
+@inject ClerkAuthService ClerkAuth
+@inject ILogger<MainLayout> Logger
 
 <div class="@($"{ThemeService.CurrentTheme}-theme")" id="main-layout">
-    <CascadingAuthenticationState>
-        <!-- Modern Navbar -->
-        <nav class="navbar">
-            <div class="navbar-left">
-                <button @onclick="ToggleSidebar" class="menu-toggle" aria-label="Toggle Navigation">
-                    <span class="menu-icon"></span>
-                </button>
-                <div class="navbar-brand">
-                    <img src="images/logo.svg" alt="Custom Forms Logo" class="brand-logo" />
-                    <span>Custom Forms</span>
-                </div>
-            </div>
-            
-            <div class="navbar-center d-none d-md-flex">
-                <div class="search-container">
-                    <input type="text" placeholder="Search..." class="search-input" />
-                    <i class="search-icon">🔍</i>
-                </div>
-            </div>
-            
-            <div class="navbar-right">
-                <AuthorizeView>
-                    <Authorized>
-                        <div class="dropdown">
-                            <button class="btn btn-profile dropdown-toggle" @onclick="ToggleProfileMenu">
-                                <div class="avatar">
-                                    <span>@GetInitials(context.User.Identity?.Name)</span>
-                                </div>
-                            </button>
-                            <div class="dropdown-menu @(showProfileMenu ? "show" : "")">
-                                <span class="dropdown-header">@context.User.Identity?.Name</span>
-                                <a href="/Account/Manage" class="dropdown-item">
-                                    <i class="icon-settings"></i> Settings
-                                </a>
-                                <div class="dropdown-divider"></div>
-                                <form method="post" action="Account/LogOut">
-                                    <button type="submit" class="dropdown-item">
-                                        <i class="icon-logout"></i> Sign out
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </Authorized>
-                    <NotAuthorized>
-                        <a href="/Account/Login" class="btn btn-outline-primary me-2">Log in</a>
-                        <a href="/Account/Register" class="btn btn-primary">Sign up</a>
-                    </NotAuthorized>
-                </AuthorizeView>
-                
-                <div class="theme-toggle-container">
-                    <ThemeSelector CurrentTheme="@ThemeService.CurrentTheme" 
-                                   CurrentThemeChanged="@(async (theme) => await OnThemeChanged(theme))" />
-                </div>
-                
-                <div class="notification-bell">
-                    <button class="btn btn-icon" title="Notifications">
-                        <i class="icon-bell"></i>
-                        <span class="notification-badge">3</span>
-                    </button>
-                </div>
-            </div>
-        </nav>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top shadow-sm">
+        <div class="container-fluid">
+            <!-- Brand -->
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <img src="/logo.svg" alt="Logo" width="30" height="30" class="me-2" />
+                IsaacForms
+            </a>
 
-        <!-- Main Layout with Enhanced Sidebar -->
-        <div class="app-container">
-            <!-- Professional Sidebar -->
-            <aside class="sidebar @(isSidebarCollapsed ? "collapsed" : "")">
-                <div class="sidebar-header">
-                    <h3>Menu</h3>
-                    <button @onclick="ToggleSidebar" class="collapse-btn">
-                        <i class="@(isSidebarCollapsed ? "icon-chevron-right" : "icon-chevron-left")"></i>
+            <!-- Search Bar -->
+            <div class="d-none d-md-flex mx-auto w-50">
+                <div class="input-group">
+                    <input type="text" class="form-control" placeholder="Search..." 
+                           @bind="searchQuery" 
+                           @onkeypress="HandleSearchKeyPress" />
+                    <button class="btn btn-outline-light" @onclick="PerformSearch">
+                        <i class="bi bi-search"></i>
                     </button>
                 </div>
-                
-                <div class="sidebar-content">
-                    <AuthorizeView>
-                        <div class="user-info">
-                            <div class="avatar">
-                                <span>@GetInitials(context.User.Identity?.Name)</span>
-                            </div>
-                            <div class="user-details @(isSidebarCollapsed ? "d-none" : "")">
-                                <div class="user-name">@context.User.Identity?.Name</div>
-                                <div class="user-role">@GetUserRole(context.User)</div>
-                            </div>
-                        </div>
-                    </AuthorizeView>
-                    
-                    <div class="sidebar-menu">
-                        <NavLink class="menu-item" href="/" Match="NavLinkMatch.All">
-                            <i class="icon-home"></i>
-                            <span class="@(isSidebarCollapsed ? "d-none" : "")">Home</span>
-                        </NavLink>
-                        
-                        <NavLink class="menu-item" href="/FormBuilder">
-                            <i class="icon-edit"></i>
-                            <span class="@(isSidebarCollapsed ? "d-none" : "")">Form Builder</span>
-                        </NavLink>
-                        
-                        <NavLink class="menu-item" href="/Templates">
-                            <i class="icon-template"></i>
-                            <span class="@(isSidebarCollapsed ? "d-none" : "")">Templates</span>
-                        </NavLink>
-                        
-                        <AuthorizeView Roles="Admin">
-                            <NavLink class="menu-item" href="/Admin">
-                                <i class="icon-admin"></i>
-                                <span class="@(isSidebarCollapsed ? "d-none" : "")">Admin Panel</span>
-                            </NavLink>
-                        </AuthorizeView>
-                        
-                        <div class="sidebar-section">
-                            <span class="@(isSidebarCollapsed ? "d-none" : "")">Tools</span>
-                        </div>
-                        
-                        <NavLink class="menu-item" href="/Responses">
-                            <i class="icon-responses"></i>
-                            <span class="@(isSidebarCollapsed ? "d-none" : "")">Responses</span>
-                        </NavLink>
-                        
-                        <NavLink class="menu-item" href="/Analytics">
-                            <i class="icon-chart"></i>
-                            <span class="@(isSidebarCollapsed ? "d-none" : "")">Analytics</span>
-                        </NavLink>
-                    </div>
-                </div>
-                
-                <div class="sidebar-footer">
-                    <a href="/Help" class="menu-item">
-                        <i class="icon-help"></i>
-                        <span class="@(isSidebarCollapsed ? "d-none" : "")">Help</span>
-                    </a>
-                    
-                    <a href="/About" class="menu-item">
-                        <i class="icon-info"></i>
-                        <span class="@(isSidebarCollapsed ? "d-none" : "")">About</span>
-                    </a>
-                </div>
-            </aside>
+            </div>
+
+            <!-- Right Controls -->
+            <div class="d-flex align-items-center gap-2">
+                <LoginDisplay />
+            </div>
+        </div>
+    </nav>
+
+    <!-- Layout Row -->
+    <div class="container-fluid h-100">
+        <div class="row h-100">
+            <!-- Sidebar - Always visible -->
+            <div id="app-sidebar" @ref="sidebarElement" class="@SidebarCssClass"> 
+                <NavMenu />
+            </div>
 
             <!-- Main Content -->
-            <main class="main-content @(isSidebarCollapsed ? "expanded" : "")">
-                <div class="content">
-                    @Body
-                </div>
-            </main>
-        </div>
-    </CascadingAuthenticationState>
-</div>
+            <div class="@MainContentCssClass p-4 main-content">
+                @if (showErrorUI)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        An error occurred while processing your request.
+                        <button type="button" class="btn-close" @onclick="DismissError"></button>
+                    </div>
+                }
 
-<!-- Error UI -->
-<div id="blazor-error-ui" class="@(showErrorUI ? "show" : null)" role="alert">
-    <div class="error-container">
-        <span class="error-message">An unhandled error has occurred.</span>
-        <div class="error-actions">
-            <button @onclick="ReloadPage" class="btn btn-sm btn-primary">
-                Reload
-            </button>
-            <button @onclick="DismissError" class="btn btn-sm btn-secondary">
-                Dismiss
-            </button>
+                @Body
+            </div>
         </div>
     </div>
 </div>
-<ThemeInitializer />
 
 @code {
-    private bool isSidebarCollapsed = false;
+    // UI State
     private bool showErrorUI = false;
-    private bool showProfileMenu = false;
+    private ElementReference sidebarElement; // Reference to the sidebar element for JS interop
+    private string? clickOutsideHandlerId;
+
+    // Auth/User Info
+    private string userDisplayName = "";
+    private string userRole = "";
+
+    // Search
+    private string searchQuery = "";
+
+    private string SidebarCssClass => "col-md-3 col-lg-2 p-3 border-end sidebar";
+    private string MainContentCssClass => "col-md-9 col-lg-10";
     
     private string GetInitials(string? name)
     {
         if (string.IsNullOrEmpty(name)) return "U";
-        
+
         var parts = name.Split(new[] { ' ', '@' }, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length > 1)
-            return parts[0][0].ToString().ToUpper() + parts[1][0].ToString().ToUpper();
-        else if (parts.Length > 0)
-            return parts[0][0].ToString().ToUpper();
-        
-        return "U";
+        return parts.Length > 1
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+            : $"{parts[0][0]}".ToUpper();
     }
-    
+
     private string GetUserRole(System.Security.Claims.ClaimsPrincipal user)
     {
-        if (user.IsInRole("Admin")) return "Admin";
-        return "User";
-    }
-    
-    private void ToggleSidebar()
-    {
-        isSidebarCollapsed = !isSidebarCollapsed;
-    }
-    
-    private void ToggleProfileMenu()
-    {
-        showProfileMenu = !showProfileMenu;
-    }
-    
-    private async Task OnThemeChanged(string theme)
-    {
-        ThemeService.SetTheme(theme);
+        return user.IsInRole("Admin") ? "Admin" : "User";
     }
 
-    private async void HandleThemeChanged(object? sender, string theme)
+    // Removed ToggleSidebar method as we don't need it anymore
+
+    private bool IsActive(string href)
     {
-        await InvokeAsync(StateHasChanged);
+        if (href == "/") return NavigationManager.Uri.EndsWith("/");
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        return relativePath.StartsWith(href.TrimStart('/'));
     }
 
-    private void ReloadPage()
+    private void HandleSearchKeyPress(KeyboardEventArgs e)
     {
-        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+        if (e.Key == "Enter") PerformSearch();
     }
 
-    private void DismissError()
+    private void PerformSearch()
     {
-        showErrorUI = false;
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+            NavigationManager.NavigateTo($"/search?q={Uri.EscapeDataString(searchQuery)}");
     }
 
-    protected override void OnInitialized()
+    private void DismissError() => showErrorUI = false;
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        ThemeService.OnThemeChanged += HandleThemeChanged;
+        InvokeAsync(StateHasChanged);
     }
 
-    // Correctly implement IDisposable.Dispose() method
-    public void Dispose()
+    private async void HandleThemeChanged(object? sender, string newTheme)
     {
-        ThemeService.OnThemeChanged -= HandleThemeChanged;
+        try
+        {
+            // Call the JavaScript function to apply the theme
+            await JSRuntime.InvokeVoidAsync("appInterop.theme.set", newTheme);
+            // Update the layout's class if needed (though JS might be sufficient)
+            await InvokeAsync(StateHasChanged); 
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error calling JS to set theme.");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        NavigationManager.LocationChanged += HandleLocationChanged;
+        ThemeService.OnThemeChanged += HandleThemeChanged; // Subscribe to the theme change event
+
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            if (ClerkAuth.CurrentUser != null)
+            {
+                userDisplayName = ClerkAuth.CurrentUser.FirstName ?? user.Identity.Name ?? "User";
+            }
+            else
+            {
+                userDisplayName = user.Identity.Name ?? "User";
+            }
+            userRole = GetUserRole(user);
+            await JSRuntime.InvokeVoidAsync("appInterop.theme.set", ThemeService.CurrentTheme);
+
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Pass the ID of the element to ignore clicks inside
+            clickOutsideHandlerId = await JSRuntime.InvokeAsync<string?>("appInterop.initClickOutsideHandlers", "app-sidebar", DotNetObjectReference.Create(this));
+        }
     }
 
     [JSInvokable]
-    public static void ShowErrorUI()
+    public void InvokeClickOutside()
     {
-        // Implementation would set showErrorUI to true
+        StateHasChanged();
+    }
+
+    public void Dispose() 
+    {
+        NavigationManager.LocationChanged -= HandleLocationChanged;
+        ThemeService.OnThemeChanged -= HandleThemeChanged; // Unsubscribe from theme change event
+
+        if (clickOutsideHandlerId != null)
+        {
+            try
+            {
+                _ = JSRuntime.InvokeVoidAsync("appInterop.removeClickOutsideHandlers", clickOutsideHandlerId);
+            }
+            catch (Exception ex) when (ex is JSDisconnectedException || ex is OperationCanceledException)
+            {
+                 // Ignore errors if JS runtime is already disposed during shutdown
+                 Logger.LogDebug("JS Interop for click outside cleanup failed during dispose (likely expected).");
+            }
+            catch (Exception ex)
+            {
+                 Logger.LogWarning(ex, "Error removing click outside handler during dispose.");
+            }
+        }
     }
 }

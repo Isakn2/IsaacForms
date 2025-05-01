@@ -1,167 +1,51 @@
-﻿@page "/Account/Register"
-
-@using System.ComponentModel.DataAnnotations
-@using Microsoft.AspNetCore.Identity
-@using CustomFormsApp.Data
-@using CustomFormsApp.Services
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Components.Authorization
+@page "/Account/Register"
 @using Microsoft.AspNetCore.Components.Web
-@using Microsoft.AspNetCore.Components.Forms
-
-@inject UserManager<ApplicationUser> UserManager
-@inject RoleManager<IdentityRole> RoleManager
-@inject SignInManager<ApplicationUser> SignInManager
-@inject ILogger<Register> Logger
+@using CustomFormsApp.Services
+@inject ClerkAuthService ClerkAuth
 @inject NavigationManager NavigationManager
-@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<Register> Logger
+@inject ICurrentUserService CurrentUserService
+@layout AccountLayout
 
-<PageTitle>Register</PageTitle>
+<PageTitle>Register - IsaacForms</PageTitle>
 
-<h1>Register</h1>
-
-<div class="row">
-    <div class="col-md-6">
-        <EditForm Model="Input" OnValidSubmit="HandleRegistration">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" />
-            
-            <div class="alert alert-info" role="alert">
-                @StatusMessage
-            </div>
-            
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" class="form-control" autocomplete="username" />
-                <label>Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
-            </div>
-
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.DisplayName" class="form-control" autocomplete="name" />
-                <label>Display Name</label>
-                <ValidationMessage For="() => Input.DisplayName" class="text-danger" />
-            </div>
-            
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" class="form-control" autocomplete="new-password" />
-                <label>Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
-            </div>
-            
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.ConfirmPassword" class="form-control" autocomplete="new-password" />
-                <label>Confirm Password</label>
-                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
-            </div>
-            
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
-        </EditForm>
+<div class="text-center mt-5">
+    <h3>Redirecting...</h3>
+    <div class="spinner-border mt-3" role="status">
+        <span class="visually-hidden">Loading...</span>
     </div>
 </div>
 
 @code {
-    private InputModel Input { get; set; } = new();
-    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
-    private string StatusMessage { get; set; } = "";
-    
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
-        // Check if user is already authenticated
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (authState.User.Identity?.IsAuthenticated == true)
+        try
         {
-            NavigationManager.NavigateTo(ReturnUrl ?? "/");
-        }
-    }
-
-    private async Task HandleRegistration()
-    {
-        try {
-            StatusMessage = "Processing...";
+            // Wait for Clerk to be ready
+            await ClerkAuth.WaitForInitializationAsync();
             
-            // Add a StateHasChanged() to update UI before proceeding
-            StateHasChanged();
-            
-            var existingUser = await UserManager.FindByEmailAsync(Input.Email);
-            if (existingUser != null)
+            // Check if user is already authenticated
+            if (ClerkAuth.IsAuthenticated || CurrentUserService.IsAuthenticated())
             {
-                StatusMessage = "Error: A user with this email already exists.";
-                StateHasChanged();
+                // User is already signed in, redirect to home or return URL
+                var destination = string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl;
+                Logger.LogInformation("User is already authenticated. Redirecting to {Destination}", destination);
+                NavigationManager.NavigateTo(destination);
                 return;
             }
-
-            string? creatorId = null;
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            if (authState.User.Identity?.IsAuthenticated == true)
-            {
-                creatorId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            }
             
-            var user = new ApplicationUser 
-            { 
-                UserName = Input.Email, 
-                Email = Input.Email,
-                EmailConfirmed = true,
-                DisplayName = Input.DisplayName,
-                CreatorId = creatorId
-            };
-            
-            var result = await UserManager.CreateAsync(user, Input.Password);
-
-            if (result.Succeeded)
-            {
-                // Add to User role
-                if (!await RoleManager.RoleExistsAsync("User"))
-                {
-                    await RoleManager.CreateAsync(new IdentityRole("User"));
-                }
-                await UserManager.AddToRoleAsync(user, "User");
-                
-                // Don't sign in here - redirect to login page instead
-                StatusMessage = "Registration successful! Please login to continue.";
-                StateHasChanged();
-                
-                // Wait briefly so user sees the message
-                await Task.Delay(1500);
-                
-                // Redirect to login page instead of signing in
-                NavigationManager.NavigateTo($"/Account/Login?ReturnUrl={Uri.EscapeDataString(ReturnUrl ?? "/")}");
-            }
-            else
-            {
-                StatusMessage = $"Error: {string.Join(", ", result.Errors.Select(e => e.Description))}";
-                StateHasChanged();
-            }
+            // Open sign up directly instead of redirecting to login page
+            await ClerkAuth.OpenSignUp(ReturnUrl);
         }
         catch (Exception ex)
         {
-            StatusMessage = "An unexpected error occurred. Please try again.";
-            Logger.LogError(ex, "Registration error for {Email}", Input.Email);
-            StateHasChanged();
+            Logger.LogError(ex, "Failed to redirect to sign up");
+            // Fall back to the login page
+            NavigationManager.NavigateTo($"/Account/Login?ReturnUrl={Uri.EscapeDataString(ReturnUrl ?? "/")}", true);
         }
-    }
-
-    private class InputModel
-    {
-        [Required]
-        [EmailAddress]
-        [Display(Name = "Email")]
-        public string Email { get; set; } = "";
-        
-        [Required]
-        [StringLength(100, MinimumLength = 2)]
-        [Display(Name = "Display Name")]
-        public string DisplayName { get; set; } = "";
-
-        [Required]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 6)]
-        [DataType(DataType.Password)]
-        [Display(Name = "Password")]
-        public string Password { get; set; } = "";
-
-        [DataType(DataType.Password)]
-        [Display(Name = "Confirm password")]
-        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
-        public string ConfirmPassword { get; set; } = "";
     }
 }

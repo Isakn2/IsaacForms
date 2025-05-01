@@ -1,0 +1,648 @@
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using System.Timers 
+@using CustomFormsApp.Components.Shared
+@implements IDisposable
+
+@inject IAdminService AdminService
+@inject ILogger<UserList> Logger
+@inject ICurrentUserService CurrentUserService
+@inject NavigationManager Navigation
+
+<div class="user-list-component">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h3 class="mb-0 me-3">Application Users</h3>
+
+        @* --- Search Input --- *@
+        <div class="input-group input-group-sm flex-grow-1" style="max-width: 300px;">
+            <span class="input-group-text" id="user-search-addon"><i class="bi bi-search"></i></span>
+            <input type="search" class="form-control form-control-sm" placeholder="Search name/email/username..."
+                   aria-label="Search Users" aria-describedby="user-search-addon"
+                   @bind="searchTerm" @bind:event="oninput" />
+        </div>
+        
+        @* --- Sync Button --- *@
+        <button class="btn btn-sm btn-outline-primary" @onclick="SyncUsersFromClerk" disabled="@isSyncing">
+            @if (isSyncing)
+            {
+                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                <span>Syncing Users...</span>
+            }
+            else
+            {
+                <i class="bi bi-cloud-download me-1"></i>
+                <span>Sync Users from Clerk</span>
+            }
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(actionMessage))
+    {
+        <div class="alert @(actionSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+            @actionMessage
+            <button type="button" class="btn-close" @onclick="ClearActionMessage" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        @* ... loading indicator ... *@
+        <div class="text-center my-4">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <p class="mt-2 text-muted">Loading users...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        @* ... error message ... *@
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+        </div>
+    }
+    else if (users == null || !users.Any())
+    {
+        @* ... no users message ... *@
+        <div class="alert alert-info" role="alert">
+            No users found matching the criteria.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm">
+                @* ... table header ... *@
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col" class="text-center">Actions</th>
+                        <th scope="col">Roles</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">First Name</th>
+                        <th scope="col">Last Name</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Username</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in users)
+                    {
+                        <tr class="@(user.IsBlocked ? "table-danger" : "")">
+                            <td class="text-center">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            @onclick="() => ShowUserDetails(user.Id)" 
+                                            title="View Details">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    
+                                    @if (user.IsAdmin)
+                                    {
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                @onclick="() => ConfirmRemoveAdmin(user)" 
+                                                title="Remove Admin Access"
+                                                disabled="@(isProcessing || (IsCurrentUser(user) && !AnyOtherAdminExists()))">
+                                            <i class="bi bi-person-dash"></i>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                @onclick="() => ConfirmMakeAdmin(user)" 
+                                                title="Make Admin"
+                                                disabled="@isProcessing">
+                                            <i class="bi bi-person-fill-gear"></i>
+                                        </button>
+                                    }
+                                    
+                                    @if (user.IsBlocked)
+                                    {
+                                        <button class="btn btn-sm btn-outline-success" 
+                                                @onclick="() => ConfirmUnblockUser(user)" 
+                                                title="Unblock User"
+                                                disabled="@isProcessing">
+                                            <i class="bi bi-unlock"></i>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-warning" 
+                                                @onclick="() => ConfirmBlockUser(user)" 
+                                                title="Block User"
+                                                disabled="@(isProcessing || IsCurrentUser(user))">
+                                            <i class="bi bi-lock"></i>
+                                        </button>
+                                    }
+                                    
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            @onclick="() => ConfirmDeleteUser(user)" 
+                                            title="Delete User"
+                                            disabled="@(isProcessing || IsCurrentUser(user))">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td>
+                                @if (user.IsAdmin)
+                                {
+                                    <span class="badge bg-primary">Admin</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">User</span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.IsBlocked)
+                                {
+                                    <span class="badge bg-danger">Blocked</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                            </td>
+                            <td>@user.FirstName</td>
+                            <td>@user.LastName</td>
+                            <td>@user.Email</td>
+                            <td>@user.Username</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @* --- Pagination Controls --- *@
+        <div class="d-flex justify-content-center mt-3">
+            <Pagination CurrentPage="currentPage"
+                        TotalPages="totalPages"
+                        OnPageChanged="HandlePageChanged" />
+        </div>
+        <p class="text-muted small text-center mt-2">Showing page @currentPage of @totalPages (@totalUserCount total users)</p>
+    }
+
+    @* --- Confirmation Modal --- *@
+    @if (showConfirmationModal)
+    {
+        <div class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@confirmationTitle</h5>
+                        <button type="button" class="btn-close" @onclick="CancelConfirmation" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>@confirmationMessage</p>
+                        @if (showWarningMessage)
+                        {
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                @warningMessage
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelConfirmation">Cancel</button>
+                        <button type="button" class="btn @confirmButtonClass" @onclick="ExecuteConfirmedAction">
+                            @if (isProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                <span>Processing...</span>
+                            }
+                            else
+                            {
+                                <span>@confirmButtonText</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private IEnumerable<ClerkUserDbModel>? users;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    // --- Pagination State ---
+    private int currentPage = 1;
+    private int pageSize = 15; // Adjust as needed
+    private int totalUserCount = 0;
+    private int totalPages => (int)Math.Ceiling((double)totalUserCount / pageSize);
+
+    // --- Search State ---
+    private string _searchTerm = string.Empty;
+    private System.Timers.Timer? _debounceTimer;
+
+    // --- Action Message ---
+    private string? actionMessage;
+    private bool actionSuccess = false;
+
+    // --- Confirmation Modal State ---
+    private bool showConfirmationModal = false;
+    private string confirmationTitle = string.Empty;
+    private string confirmationMessage = string.Empty;
+    private string confirmButtonText = "Confirm";
+    private string confirmButtonClass = "btn-primary";
+    private bool showWarningMessage = false;
+    private string warningMessage = string.Empty;
+    private bool isProcessing = false;
+    private Func<Task>? confirmedAction;
+    private ClerkUserDbModel? selectedUser;
+
+    private bool isSyncing = false;
+
+    private string searchTerm
+    {
+        get => _searchTerm;
+        set
+        {
+            if (_searchTerm != value)
+            {
+                _searchTerm = value;
+                _debounceTimer?.Stop();
+                _debounceTimer?.Start();
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _debounceTimer = new System.Timers.Timer(500); // 500ms debounce
+        _debounceTimer.Elapsed += async (sender, e) => await HandleSearchDebounced();
+        _debounceTimer.AutoReset = false;
+
+        await LoadUsers();
+    }
+
+    // --- Debounced Search Handler ---
+    private async Task HandleSearchDebounced()
+    {
+        currentPage = 1; // Reset to first page on new search
+        await InvokeAsync(async () => {
+            await LoadUsers();
+            StateHasChanged();
+        });
+    }
+
+    // --- Load Users Method ---
+    private async Task LoadUsers()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Call the service method
+            var result = await AdminService.GetUsersAsync(currentPage, pageSize, searchTerm);
+            users = result.Users;
+            totalUserCount = result.TotalCount;
+
+            // Log more details for debugging
+            Logger.LogInformation("Loaded page {Page} users (Count: {Count}, Total: {Total}, Search: '{Search}').",
+                currentPage, users?.Count() ?? 0, totalUserCount, searchTerm);
+                
+            // Add detailed diagnostics for users
+            if (users == null || !users.Any())
+            {
+                Logger.LogWarning("No users were returned from AdminService.GetUsersAsync");
+                
+                // Get database diagnostics to see if users exist
+                var diagnostics = await AdminService.GetDatabaseDiagnosticsAsync();
+                Logger.LogInformation("Database diagnostics: {Diagnostics}", diagnostics);
+            }
+            else
+            {
+                // Log first few users for debugging
+                var firstUsers = users.Take(3).Select(u => $"{u.Id}: {u.Email}").ToList();
+                Logger.LogInformation("First few users: {FirstUsers}", string.Join(", ", firstUsers));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading users (Page: {Page}, Size: {Size}, Search: '{Search}').",
+                currentPage, pageSize, searchTerm);
+            errorMessage = "Failed to load users. Please check the logs.";
+            users = null;
+            totalUserCount = 0;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // --- Handle Page Change Event ---
+    private async Task HandlePageChanged(int newPage)
+    {
+        if (newPage >= 1 && newPage <= totalPages && newPage != currentPage)
+        {
+            currentPage = newPage;
+            await LoadUsers(); // Reload data for the new page
+        }
+    }
+
+    private void ClearActionMessage()
+    {
+        actionMessage = null;
+        StateHasChanged();
+    }
+
+    private bool IsCurrentUser(ClerkUserDbModel user)
+    {
+        var currentUserId = CurrentUserService.GetUserId();
+        return currentUserId == user.Id;
+    }
+
+    private bool AnyOtherAdminExists()
+    {
+        var currentUserId = CurrentUserService.GetUserId();
+        return users?.Any(u => u.IsAdmin && u.Id != currentUserId) == true;
+    }
+
+    // --- User Action Methods ---
+    private void ShowUserDetails(string userId)
+    {
+        Navigation.NavigateTo($"/users/profile/{userId}");
+    }
+
+    private void ConfirmMakeAdmin(ClerkUserDbModel user)
+    {
+        selectedUser = user;
+        confirmationTitle = "Make User Admin";
+        confirmationMessage = $"Are you sure you want to give admin access to {user.FirstName} {user.LastName} ({user.Email})?";
+        confirmButtonText = "Make Admin";
+        confirmButtonClass = "btn-primary";
+        showWarningMessage = true;
+        warningMessage = "This will give the user full access to all templates, forms, and administrative functions.";
+        confirmedAction = MakeUserAdmin;
+        showConfirmationModal = true;
+    }
+
+    private void ConfirmRemoveAdmin(ClerkUserDbModel user)
+    {
+        selectedUser = user;
+        confirmationTitle = "Remove Admin Access";
+        confirmationMessage = $"Are you sure you want to remove admin access from {user.FirstName} {user.LastName} ({user.Email})?";
+        confirmButtonText = "Remove Admin";
+        confirmButtonClass = "btn-danger";
+        
+        showWarningMessage = IsCurrentUser(user);
+        warningMessage = "You are removing admin access from yourself. You won't be able to access this admin panel after this action.";
+        
+        confirmedAction = RemoveUserAdmin;
+        showConfirmationModal = true;
+    }
+
+    private void ConfirmBlockUser(ClerkUserDbModel user)
+    {
+        selectedUser = user;
+        confirmationTitle = "Block User";
+        confirmationMessage = $"Are you sure you want to block {user.FirstName} {user.LastName} ({user.Email})?";
+        confirmButtonText = "Block User";
+        confirmButtonClass = "btn-warning";
+        showWarningMessage = true;
+        warningMessage = "Blocked users cannot log in or access the application.";
+        confirmedAction = BlockUser;
+        showConfirmationModal = true;
+    }
+
+    private void ConfirmUnblockUser(ClerkUserDbModel user)
+    {
+        selectedUser = user;
+        confirmationTitle = "Unblock User";
+        confirmationMessage = $"Are you sure you want to unblock {user.FirstName} {user.LastName} ({user.Email})?";
+        confirmButtonText = "Unblock User";
+        confirmButtonClass = "btn-success";
+        showWarningMessage = false;
+        confirmedAction = UnblockUser;
+        showConfirmationModal = true;
+    }
+
+    private void ConfirmDeleteUser(ClerkUserDbModel user)
+    {
+        selectedUser = user;
+        confirmationTitle = "Delete User";
+        confirmationMessage = $"Are you sure you want to PERMANENTLY DELETE {user.FirstName} {user.LastName} ({user.Email})?";
+        confirmButtonText = "Delete User";
+        confirmButtonClass = "btn-danger";
+        showWarningMessage = true;
+        warningMessage = "This action cannot be undone. All user data, templates, and forms will be deleted.";
+        confirmedAction = DeleteUser;
+        showConfirmationModal = true;
+    }
+
+    private void CancelConfirmation()
+    {
+        showConfirmationModal = false;
+        selectedUser = null;
+        confirmedAction = null;
+    }
+
+    private async Task ExecuteConfirmedAction()
+    {
+        if (confirmedAction != null)
+        {
+            isProcessing = true;
+            StateHasChanged();
+            
+            try
+            {
+                await confirmedAction();
+            }
+            finally
+            {
+                isProcessing = false;
+                showConfirmationModal = false;
+                selectedUser = null;
+                confirmedAction = null;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task MakeUserAdmin()
+    {
+        if (selectedUser == null) return;
+        
+        try
+        {
+            var result = await AdminService.SetUserAdminRoleAsync(selectedUser.Id, true);
+            if (result)
+            {
+                actionMessage = $"Admin access granted to {selectedUser.FirstName} {selectedUser.LastName}.";
+                actionSuccess = true;
+                await LoadUsers(); // Refresh the list
+            }
+            else
+            {
+                actionMessage = $"Failed to grant admin access to {selectedUser.FirstName} {selectedUser.LastName}.";
+                actionSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error making user {UserId} admin", selectedUser.Id);
+            actionMessage = "An error occurred while granting admin access.";
+            actionSuccess = false;
+        }
+    }
+
+    private async Task RemoveUserAdmin()
+    {
+        if (selectedUser == null) return;
+        
+        try
+        {
+            var result = await AdminService.SetUserAdminRoleAsync(selectedUser.Id, false);
+            if (result)
+            {
+                actionMessage = $"Admin access removed from {selectedUser.FirstName} {selectedUser.LastName}.";
+                actionSuccess = true;
+                
+                // If we removed our own admin access, redirect to home page after a short delay
+                if (IsCurrentUser(selectedUser))
+                {
+                    await Task.Delay(1500); // Short delay to show the success message
+                    Navigation.NavigateTo("/", true); // Force reload to update auth state
+                    return;
+                }
+                
+                await LoadUsers(); // Refresh the list for other users
+            }
+            else
+            {
+                actionMessage = $"Failed to remove admin access from {selectedUser.FirstName} {selectedUser.LastName}.";
+                actionSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error removing admin role from user {UserId}", selectedUser.Id);
+            actionMessage = "An error occurred while removing admin access.";
+            actionSuccess = false;
+        }
+    }
+
+    private async Task BlockUser()
+    {
+        if (selectedUser == null) return;
+        
+        try
+        {
+            var result = await AdminService.BlockUserAsync(selectedUser.Id, true);
+            if (result)
+            {
+                actionMessage = $"User {selectedUser.FirstName} {selectedUser.LastName} has been blocked.";
+                actionSuccess = true;
+                await LoadUsers(); // Refresh the list
+            }
+            else
+            {
+                actionMessage = $"Failed to block user {selectedUser.FirstName} {selectedUser.LastName}.";
+                actionSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error blocking user {UserId}", selectedUser.Id);
+            actionMessage = "An error occurred while blocking the user.";
+            actionSuccess = false;
+        }
+    }
+
+    private async Task UnblockUser()
+    {
+        if (selectedUser == null) return;
+        
+        try
+        {
+            var result = await AdminService.BlockUserAsync(selectedUser.Id, false);
+            if (result)
+            {
+                actionMessage = $"User {selectedUser.FirstName} {selectedUser.LastName} has been unblocked.";
+                actionSuccess = true;
+                await LoadUsers(); // Refresh the list
+            }
+            else
+            {
+                actionMessage = $"Failed to unblock user {selectedUser.FirstName} {selectedUser.LastName}.";
+                actionSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error unblocking user {UserId}", selectedUser.Id);
+            actionMessage = "An error occurred while unblocking the user.";
+            actionSuccess = false;
+        }
+    }
+
+    private async Task DeleteUser()
+    {
+        if (selectedUser == null) return;
+        
+        try
+        {
+            var result = await AdminService.DeleteUserAsync(selectedUser.Id);
+            if (result)
+            {
+                actionMessage = $"User {selectedUser.FirstName} {selectedUser.LastName} has been deleted.";
+                actionSuccess = true;
+                await LoadUsers(); // Refresh the list
+            }
+            else
+            {
+                actionMessage = $"Failed to delete user {selectedUser.FirstName} {selectedUser.LastName}.";
+                actionSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting user {UserId}", selectedUser.Id);
+            actionMessage = "An error occurred while deleting the user.";
+            actionSuccess = false;
+        }
+    }
+
+    private async Task SyncUsersFromClerk()
+    {
+        isSyncing = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AdminService.SyncUsersFromClerkAsync();
+            if (result)
+            {
+                actionMessage = "Users successfully synced from Clerk.";
+                actionSuccess = true;
+                await LoadUsers(); // Refresh the list
+            }
+            else
+            {
+                actionMessage = "Failed to sync users from Clerk.";
+                actionSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error syncing users from Clerk");
+            actionMessage = "An error occurred while syncing users from Clerk.";
+            actionSuccess = false;
+        }
+        finally
+        {
+            isSyncing = false;
+            StateHasChanged();
+        }
+    }
+
+    // --- Dispose Timer ---
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+}

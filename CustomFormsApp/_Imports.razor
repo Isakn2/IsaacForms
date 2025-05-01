@@ -1,16 +1,18 @@
 ﻿@using System.Net.Http
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Web.Virtualization
 @using Microsoft.JSInterop
-
 @using CustomFormsApp
 @using CustomFormsApp.Shared
 @using CustomFormsApp.Components
-@using CustomFormsApp.Components.Account
+@using CustomFormsApp.Components.Layout
+@using CustomFormsApp.Services
 @using CustomFormsApp.Data.Models
+@using CustomFormsApp.Data.Enums 
 
 @inject HttpClient Http
-@inject NavigationManager Navigation
-@using CustomFormsApp.Data.Enums
+@using System.Threading.Tasks

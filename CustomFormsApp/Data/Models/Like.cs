@@ -8,6 +8,6 @@ namespace CustomFormsApp.Data.Models
         public DateTime LikedDate { get; set; } = DateTime.UtcNow;
 
         public Template Template { get; set; } = null!;
-        public ApplicationUser User { get; set; } = null!;
+        public ClerkUserDbModel User { get; set; } = null!;
     }
 }

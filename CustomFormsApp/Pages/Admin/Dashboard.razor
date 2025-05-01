@@ -1,0 +1,96 @@
+@page "/admin/dashboard"
+@attribute [Authorize(Policy = "AdminPolicy")]
+
+@using Microsoft.AspNetCore.Authorization
+@using CustomFormsApp.Components.Admin
+@using Microsoft.JSInterop
+
+@inject IAuthorizationService AuthorizationService
+@inject NavigationManager Navigation
+@inject ILogger<Dashboard> Logger
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Admin Dashboard</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="mb-4">Admin Dashboard</h1>
+
+    @* --- Site Statistics --- *@
+    <SiteStats />
+
+    <hr class="my-4" />
+
+    <h2 class="mb-3">Management Sections</h2>
+    <div class="row g-4">
+        @* User Management Card *@
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="bi bi-people-fill display-4 text-primary mb-3"></i>
+                    <h5 class="card-title">User Management</h5>
+                    <p class="card-text">View application users listed below.</p>
+                    <button @onclick="ScrollToUserList" class="btn btn-primary">Go to User List</button>
+                </div>
+            </div>
+        </div>
+
+        @* Content Management Card *@
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm">
+                 <div class="card-body text-center">
+                    <i class="bi bi-journal-richtext display-4 text-info mb-3"></i>
+                    <h5 class="card-title">Content Management</h5>
+                    <p class="card-text">Oversee templates, forms, and responses.</p>
+                    <button @onclick="ScrollToTemplates" class="btn btn-info">Go to Template List</button>
+                </div>
+            </div>
+        </div>
+        
+        @* System Tools Card *@
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm">
+                 <div class="card-body text-center">
+                    <i class="bi bi-tools display-4 text-warning mb-3"></i>
+                    <h5 class="card-title">System Tools</h5>
+                    <p class="card-text">Database diagnosis and sample data creation.</p>
+                    <a href="/admin/db-test" class="btn btn-warning">Database Tools</a>
+                </div>
+            </div>
+        </div>
+    </div> @* End row *@
+
+    @* --- User List Section --- *@
+    <div id="user-list-section" class="mt-5 pt-4 border-top">
+        <UserList />
+    </div>
+
+    @* --- All Templates List Section --- *@
+    <div id="all-templates-section" class="mt-5 pt-4 border-top"> 
+        <AllTemplatesList />
+    </div>
+
+    @* --- All Responses List Section --- *@
+    <div id="all-responses-section" class="mt-5 pt-4 border-top">
+        <AllResponsesList />
+    </div>
+
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Optional: Log admin access
+        Logger.LogInformation("Admin dashboard accessed.");
+        await base.OnInitializedAsync();
+    }
+
+    private async Task ScrollToUserList()
+    {
+        await JSRuntime.InvokeVoidAsync("scrollToElement", "user-list-section");
+    }
+
+    private async Task ScrollToTemplates()
+    {
+        await JSRuntime.InvokeVoidAsync("scrollToElement", "all-templates-section");
+    }
+}

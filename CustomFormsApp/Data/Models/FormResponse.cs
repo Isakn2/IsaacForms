@@ -1,16 +1,35 @@
 // FormResponse.cs
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace CustomFormsApp.Data.Models
 {
     public class FormResponse
     {
-        public int Id { get; set; } = 0;
-        public int TemplateId { get; set; } // Changed from string to int
-        public string UserId { get; set; } = null!; // Keep as string since ASP.NET Identity uses string for user IDs
-        public DateTime SubmittedDate { get; set; } = DateTime.UtcNow;
-        
+        public int Id { get; set; }
+
+        // Foreign Key for Form
+        [Required]
+        public int FormId { get; set; } 
+
+        // Navigation property for Form
+        [ForeignKey("FormId")]
+        public virtual Form? Form { get; set; } 
+
+        // Foreign Key for SubmittedBy User
+        [Required]
+        public string SubmittedById { get; set; } = string.Empty; 
+
+        // Navigation property for SubmittedBy User
+        [ForeignKey("SubmittedById")]
+        public virtual ClerkUserDbModel? SubmittedBy { get; set; } 
+
+        // Submission Date
+        public DateTime SubmissionDate { get; set; } = DateTime.UtcNow; 
+
         // Navigation properties
-        public ApplicationUser User { get; set; } = null!;
-        public Template Template { get; set; } = null!;
-        public ICollection<Answer> Answers { get; set; } = new List<Answer>();
+        public virtual ICollection<Answer> Answers { get; set; } = new List<Answer>();
     }
 }

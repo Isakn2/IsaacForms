@@ -1,0 +1,113 @@
+@using CustomFormsApp.Data
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Components.Likes
+@inject NavigationManager Navigation
+
+@if (TemplateItem != null)
+{
+    <div class="card h-100 shadow-sm template-card">
+        @* ... Image Header ... *@
+        @if (!string.IsNullOrWhiteSpace(TemplateItem.ImageUrl))
+        {
+            <img src="@TemplateItem.ImageUrl" class="card-img-top" alt="@TemplateItem.Title" style="max-height: 180px; object-fit: cover;">
+        }
+        else
+        {
+            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 180px;">
+                <i class="bi bi-journal-richtext display-4 text-muted"></i>
+            </div>
+        }
+
+        <div class="card-body d-flex flex-column">
+            @* ... Title, Description, Topic, Author ... *@
+             <h5 class="card-title">@TemplateItem.Title</h5>
+
+            @if (!string.IsNullOrWhiteSpace(TemplateItem.Description))
+            {
+                <p class="card-text text-muted small mb-3 flex-grow-1">
+                    @(TemplateItem.Description.Length > 100 ? TemplateItem.Description.Substring(0, 100) + "..." : TemplateItem.Description)
+                </p>
+            }
+            else
+            {
+                 <p class="card-text text-muted small mb-3 flex-grow-1"><i>No description provided.</i></p>
+            }
+
+            <div class="d-flex justify-content-between align-items-center mb-2 small text-muted">
+                <span>
+                    @if (!string.IsNullOrWhiteSpace(TemplateItem.Topic))
+                    {
+                        <i class="bi bi-tag me-1"></i> @TemplateItem.Topic
+                    }
+                </span>
+                <span>
+                    <i class="bi bi-person me-1"></i> @(TemplateItem.CreatedBy?.Username ?? "Unknown")
+                </span>
+            </div>
+
+            @* Action Buttons Area *@
+            <div class="mt-auto d-flex justify-content-end gap-2 pt-2 border-top">
+                 <button class="btn btn-sm btn-outline-secondary" @onclick="UseTemplate" title="Use this template">
+                    <i class="bi bi-plus-square"></i> Use
+                </button>
+                @* Render custom actions passed from parent *@
+                @CardActions
+            </div>
+        </div>
+
+        @* Card Footer - Add Like Button Here *@
+        <div class="card-footer text-muted small">
+            <div class="d-flex justify-content-between align-items-center">
+                 <div>
+                     <span title="Created Date"><i class="bi bi-calendar-plus me-1"></i> @TemplateItem.CreatedDate.ToLocalTime().ToString("d")</span>
+                     <span class="ms-2" title="Last Updated"><i class="bi bi-arrow-repeat me-1"></i> @(TemplateItem.LastModifiedDate?.ToLocalTime().ToString("d") ?? "N/A")</span>
+                 </div>
+                 <div>
+                     @* Integrate the LikeButton component - Fixed the syntax to correctly pass the ID *@
+                     <LikeButton TemplateId="@TemplateItem.Id" />
+                 </div>
+            </div>
+             @* Optional: Add Response counts here if needed *@
+             @* <div class="d-flex justify-content-start gap-3 mt-1">
+                 <span><i class="bi bi-chat-left-text"></i> @TemplateItem.ResponseCount</span>
+             </div> *@
+        </div>
+    </div>
+}
+else
+{
+    @* ... Placeholder ... *@
+     <div class="card h-100 placeholder-glow">
+        <div class="card-img-top placeholder" style="height: 180px;"></div>
+        <div class="card-body">
+            <h5 class="card-title placeholder col-8"></h5>
+            <p class="card-text placeholder col-10"></p>
+            <p class="card-text placeholder col-6"></p>
+            <p class="card-text placeholder col-7"></p>
+            <div class="mt-auto d-flex justify-content-end gap-2 pt-2 border-top">
+                 <a href="#" tabindex="-1" class="btn btn-sm btn-outline-secondary disabled placeholder col-3"></a>
+            </div>
+        </div>
+         <div class="card-footer placeholder col-12 d-flex justify-content-between">
+             <span class="placeholder col-5"></span>
+             <span class="placeholder col-2"></span>
+         </div>
+    </div>
+}
+
+
+@code {
+    [Parameter, EditorRequired]
+    public Template? TemplateItem { get; set; }
+
+    [Parameter]
+    public RenderFragment? CardActions { get; set; }
+
+    private void UseTemplate()
+    {
+        if (TemplateItem != null)
+        {
+            Navigation.NavigateTo($"/form-builder?templateId={TemplateItem.Id}");
+        }
+    }
+}

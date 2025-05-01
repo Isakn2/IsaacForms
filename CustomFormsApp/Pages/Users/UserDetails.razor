@@ -1,0 +1,588 @@
+@page "/account/profile/{UserId}"
+@attribute [Authorize(Policy = "AdminPolicy")]
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject IAdminService AdminService
+@inject ITemplateService TemplateService
+@inject IFormResponseService FormResponseService
+@inject NavigationManager Navigation
+@inject ILogger<UserDetails> Logger
+
+<PageTitle>User Details</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">
+            <button class="btn btn-outline-secondary me-2" @onclick="GoBack" title="Go back to user list">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            User Profile
+        </h1>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border" role="status"></div>
+            <p class="mt-3">Loading user details...</p>
+        </div>
+    }
+    else if (user == null || !string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            @(errorMessage ?? "User not found or you don't have permission to view this profile.")
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        @if (!string.IsNullOrEmpty(user.ImageUrl))
+                        {
+                            <img src="@user.ImageUrl" alt="@user.DisplayName" class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;" />
+                        }
+                        else
+                        {
+                            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 150px; height: 150px;">
+                                <i class="bi bi-person-fill text-white" style="font-size: 80px;"></i>
+                            </div>
+                        }
+                        <h3 class="mb-0">@user.DisplayName</h3>
+                        <p class="text-muted">@@@user.Username</p>
+                        
+                        <div class="d-flex justify-content-center gap-2 mt-3">
+                            @if (user.IsAdmin)
+                            {
+                                <span class="badge bg-primary">Admin</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">User</span>
+                            }
+                            
+                            @if (user.IsBlocked)
+                            {
+                                <span class="badge bg-danger">Blocked</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-header">Contact Information</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <strong><i class="bi bi-envelope me-2"></i>Email:</strong>
+                            <div>@user.Email</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong><i class="bi bi-person-vcard me-2"></i>Full Name:</strong>
+                            <div>@user.FirstName @user.LastName</div>
+                        </div>
+                        
+                        <div>
+                            <strong><i class="bi bi-clock-history me-2"></i>Member Since:</strong>
+                            <div>@user.CreatedAt.ToLocalTime().ToString("MMMM d, yyyy")</div>
+                        </div>
+                        
+                        @if (user.LastLoginAt.HasValue)
+                        {
+                            <div class="mt-3">
+                                <strong><i class="bi bi-calendar-check me-2"></i>Last Login:</strong>
+                                <div>@user.LastLoginAt.Value.ToLocalTime().ToString("MMMM d, yyyy h:mm tt")</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-header">Admin Actions</div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            @if (user.IsAdmin)
+                            {
+                                <button class="btn btn-outline-danger" @onclick="RemoveAdminAccess">
+                                    <i class="bi bi-person-dash me-2"></i>Remove Admin Access
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-outline-primary" @onclick="MakeAdmin">
+                                    <i class="bi bi-person-fill-gear me-2"></i>Make Admin
+                                </button>
+                            }
+                            
+                            @if (user.IsBlocked)
+                            {
+                                <button class="btn btn-outline-success" @onclick="UnblockUser">
+                                    <i class="bi bi-unlock me-2"></i>Unblock User
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-outline-warning" @onclick="BlockUser">
+                                    <i class="bi bi-lock me-2"></i>Block User
+                                </button>
+                            }
+                            
+                            <button class="btn btn-outline-danger" @onclick="DeleteUser">
+                                <i class="bi bi-trash me-2"></i>Delete User
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">User Templates (@(userTemplates?.Count ?? 0))</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (isLoadingTemplates)
+                        {
+                            <div class="text-center my-4">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                <p>Loading templates...</p>
+                            </div>
+                        }
+                        else if (userTemplates == null || !userTemplates.Any())
+                        {
+                            <div class="text-center py-4">
+                                <i class="bi bi-journal-richtext text-muted" style="font-size: 2.5rem;"></i>
+                                <p class="mt-2 text-muted">No templates created by this user.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Title</th>
+                                            <th>Created</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var template in userTemplates)
+                                        {
+                                            <tr>
+                                                <td>@template.Title</td>
+                                                <td>@template.CreatedDate.ToLocalTime().ToString("MM/dd/yyyy")</td>
+                                                <td>
+                                                    @if (template.IsPublic)
+                                                    {
+                                                        <span class="badge bg-success">Public</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-secondary">Private</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group">
+                                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => ViewTemplate(template.Id)">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">User Responses (@(userResponses?.Count ?? 0))</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (isLoadingResponses)
+                        {
+                            <div class="text-center my-4">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                <p>Loading responses...</p>
+                            </div>
+                        }
+                        else if (userResponses == null || !userResponses.Any())
+                        {
+                            <div class="text-center py-4">
+                                <i class="bi bi-clipboard-data text-muted" style="font-size: 2.5rem;"></i>
+                                <p class="mt-2 text-muted">No form responses submitted by this user.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Form</th>
+                                            <th>Submitted</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var response in userResponses)
+                                        {
+                                            <tr>
+                                                <td>@(response.Form?.Template?.Title ?? response.Form?.Name ?? "Unknown Form")</td>
+                                                <td>@response.SubmissionDate.ToLocalTime().ToString("MM/dd/yyyy HH:mm")</td>
+                                                <td>
+                                                    <div class="btn-group">
+                                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => ViewResponse(response.Id)">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showConfirmationModal)
+{
+    <div class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@confirmationTitle</h5>
+                    <button type="button" class="btn-close" @onclick="CancelAction" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@confirmationMessage</p>
+                    @if (!string.IsNullOrEmpty(warningMessage))
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            @warningMessage
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelAction">Cancel</button>
+                    <button type="button" class="btn @confirmButtonClass" @onclick="ConfirmAction" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            <span>Processing...</span>
+                        }
+                        else
+                        {
+                            <span>@confirmButtonText</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string UserId { get; set; } = string.Empty;
+    
+    private ClerkUserDbModel? user;
+    private List<Template>? userTemplates;
+    private List<FormResponse>? userResponses;
+    private bool isLoading = true;
+    private bool isLoadingTemplates = false;
+    private bool isLoadingResponses = false;
+    private string? errorMessage;
+    
+    // Modal properties
+    private bool showConfirmationModal = false;
+    private string confirmationTitle = string.Empty;
+    private string confirmationMessage = string.Empty;
+    private string confirmButtonText = "Confirm";
+    private string confirmButtonClass = "btn-primary";
+    private string? warningMessage;
+    private bool isProcessing = false;
+    private Func<Task>? confirmAction;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserData();
+    }
+    
+    protected override async Task OnParametersSetAsync()
+    {
+        if (user == null || user.Id != UserId)
+        {
+            await LoadUserData();
+        }
+    }
+    
+    private async Task LoadUserData()
+    {
+        isLoading = true;
+        
+        try
+        {
+            // Load the user by ID (create this method in AdminService)
+            await using var dbContext = AdminService.DbContextFactory.CreateDbContext();
+            user = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == UserId);
+            
+            if (user != null)
+            {
+                // Load templates and responses in parallel
+                await Task.WhenAll(
+                    LoadUserTemplates(),
+                    LoadUserResponses()
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading user data for user {UserId}", UserId);
+            errorMessage = "Failed to load user data.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+    
+    private async Task LoadUserTemplates()
+    {
+        isLoadingTemplates = true;
+        
+        try
+        {
+            userTemplates = (await TemplateService.GetUserTemplatesAsync(UserId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading templates for user {UserId}", UserId);
+        }
+        finally
+        {
+            isLoadingTemplates = false;
+        }
+    }
+    
+    private async Task LoadUserResponses()
+    {
+        isLoadingResponses = true;
+        
+        try
+        {
+            userResponses = (await FormResponseService.GetUserResponsesAsync(UserId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading responses for user {UserId}", UserId);
+        }
+        finally
+        {
+            isLoadingResponses = false;
+        }
+    }
+    
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/admin/dashboard");
+    }
+    
+    private void ViewTemplate(int templateId)
+    {
+        Navigation.NavigateTo($"/templates/{templateId}");
+    }
+    
+    private void ViewResponse(int responseId)
+    {
+        Navigation.NavigateTo($"/responses/view/{responseId}");
+    }
+    
+    // Modal helpers
+    private void ShowConfirmationModal(string title, string message, string buttonText, string buttonClass, string? warning, Func<Task> action)
+    {
+        confirmationTitle = title;
+        confirmationMessage = message;
+        confirmButtonText = buttonText;
+        confirmButtonClass = buttonClass;
+        warningMessage = warning;
+        confirmAction = action;
+        showConfirmationModal = true;
+    }
+    
+    private void CancelAction()
+    {
+        showConfirmationModal = false;
+    }
+    
+    private async Task ConfirmAction()
+    {
+        if (confirmAction != null)
+        {
+            isProcessing = true;
+            
+            try
+            {
+                await confirmAction();
+            }
+            finally
+            {
+                isProcessing = false;
+                showConfirmationModal = false;
+                StateHasChanged();
+            }
+        }
+    }
+    
+    // User actions
+    private void MakeAdmin()
+    {
+        if (user == null) return;
+        
+        ShowConfirmationModal(
+            "Make User Admin",
+            $"Are you sure you want to give admin access to {user.FirstName} {user.LastName}?",
+            "Make Admin",
+            "btn-primary",
+            "This will give the user full access to all templates, forms, and administrative functions.",
+            () => SetUserAdmin(true)
+        );
+    }
+    
+    private void RemoveAdminAccess()
+    {
+        if (user == null) return;
+        
+        ShowConfirmationModal(
+            "Remove Admin Access",
+            $"Are you sure you want to remove admin access from {user.FirstName} {user.LastName}?",
+            "Remove Admin",
+            "btn-danger",
+            null,
+            () => SetUserAdmin(false)
+        );
+    }
+    
+    private async Task SetUserAdmin(bool isAdmin)
+    {
+        if (user == null) return;
+        
+        try
+        {
+            bool result = await AdminService.SetUserAdminRoleAsync(user.Id, isAdmin);
+            
+            if (result)
+            {
+                user.IsAdmin = isAdmin;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error {Action} user {UserId} admin status", isAdmin ? "granting" : "removing", user.Id);
+        }
+    }
+    
+    private void BlockUser()
+    {
+        if (user == null) return;
+        
+        ShowConfirmationModal(
+            "Block User",
+            $"Are you sure you want to block {user.FirstName} {user.LastName}?",
+            "Block User",
+            "btn-warning",
+            "Blocked users cannot log in or access the application.",
+            () => SetUserBlockStatus(true)
+        );
+    }
+    
+    private void UnblockUser()
+    {
+        if (user == null) return;
+        
+        ShowConfirmationModal(
+            "Unblock User",
+            $"Are you sure you want to unblock {user.FirstName} {user.LastName}?",
+            "Unblock User",
+            "btn-success",
+            null,
+            () => SetUserBlockStatus(false)
+        );
+    }
+    
+    private async Task SetUserBlockStatus(bool blocked)
+    {
+        if (user == null) return;
+        
+        try
+        {
+            bool result = await AdminService.BlockUserAsync(user.Id, blocked);
+            
+            if (result)
+            {
+                user.IsBlocked = blocked;
+                user.BlockedAt = blocked ? DateTime.UtcNow : null;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error {Action} user {UserId}", blocked ? "blocking" : "unblocking", user.Id);
+        }
+    }
+    
+    private void DeleteUser()
+    {
+        if (user == null) return;
+        
+        ShowConfirmationModal(
+            "Delete User",
+            $"Are you sure you want to permanently delete {user.FirstName} {user.LastName}?",
+            "Delete User",
+            "btn-danger",
+            "This action cannot be undone. All user data, templates, and forms will be deleted.",
+            DeleteUserConfirmed
+        );
+    }
+    
+    private async Task DeleteUserConfirmed()
+    {
+        if (user == null) return;
+        
+        try
+        {
+            bool result = await AdminService.DeleteUserAsync(user.Id);
+            
+            if (result)
+            {
+                // Redirect back to user list after successful deletion
+                Navigation.NavigateTo("/admin/dashboard");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting user {UserId}", user.Id);
+        }
+    }
+}

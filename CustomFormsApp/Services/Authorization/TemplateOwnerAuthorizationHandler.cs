@@ -13,7 +13,7 @@ public class TemplateOwnerAuthorizationHandler : AuthorizationHandler<TemplateOw
         Template resource)
     {
         if (context.User.IsInRole("Admin") || 
-            context.User.FindFirstValue(ClaimTypes.NameIdentifier) == resource.CreatorId.ToString())
+            context.User.FindFirstValue(ClaimTypes.NameIdentifier) == resource.CreatedById.ToString())
         {
             context.Succeed(requirement);
         }

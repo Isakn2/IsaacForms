@@ -10,20 +10,20 @@ namespace CustomFormsApp.Data.Models
     {
         public int Id { get; set; }
         
-        public int FormId { get; set; }
-        public Form Form { get; set; } = null!;
+        public int? FormId { get; set; }
+        public virtual Form? Form { get; set; }
         
-        public int? TemplateId { get; set; }  // Changed from string to int
-        public Template? Template { get; set; }
+        public int? TemplateId { get; set; }
+        public virtual Template? Template { get; set; }
         
-        public string? CreatedById { get; set; }  // Optional if allowing null
-        public virtual ApplicationUser? CreatedBy { get; set; }
+        public string? CreatedById { get; set; }
+        public virtual ClerkUserDbModel? CreatedBy { get; set; }
         
         [MaxLength(100)]
-        public string? Topic { get; set; }  // Made nullable
+        public string? Topic { get; set; }
         
         public int Order { get; set; }
-        
+        public List<string>? Options { get; set; }
         [Required]
         [MaxLength(1000)]
         public string Text { get; set; } = null!;
@@ -32,7 +32,7 @@ namespace CustomFormsApp.Data.Models
         public bool IsRequired { get; set; }
         
         [MaxLength(2000)]
-        public string? Description { get; set; }  // Made nullable and removed null! marker
+        public string? Description { get; set; }
         
         public ICollection<Answer> Answers { get; set; } = new List<Answer>();
     }

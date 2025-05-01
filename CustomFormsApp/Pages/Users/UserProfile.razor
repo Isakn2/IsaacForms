@@ -1,0 +1,242 @@
+@page "/account/profile"
+@attribute [Authorize]
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using CustomFormsApp.Components.Template
+@inject ITemplateService TemplateService
+@inject IFormResponseService FormResponseService
+@inject ICurrentUserService CurrentUserService
+@inject NavigationManager Navigation
+@inject ILogger<UserProfile> Logger
+@inject IJSRuntime JSRuntime
+
+<PageTitle>My Profile</PageTitle>
+
+<div class="container mt-4">
+
+    @* --- My Templates Section --- *@
+    <div class="templates-section mb-5">
+        <h1 class="mb-4">My Templates</h1>
+
+        @if (isLoadingTemplates)
+        {
+            <div class="text-center">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <p class="mt-2 text-muted">Loading your templates...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(templateErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @templateErrorMessage
+            </div>
+        }
+        else if (userTemplates == null || !userTemplates.Any())
+        {
+            <div class="text-center p-5 border rounded bg-light">
+                <i class="bi bi-journal-richtext display-4 text-muted"></i>
+                <p class="mt-3">You haven't created any templates yet.</p>
+                <button class="btn btn-primary mt-2" @onclick="NavigateToCreateTemplate">
+                    <i class="bi bi-plus-circle me-1"></i> Create your first template
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                @foreach (var template in userTemplates)
+                {
+                    <div class="col">
+                        <TemplateCard TemplateItem="template">
+                            <CardActions>
+                                 <button class="btn btn-sm btn-outline-primary" @onclick="() => EditTemplate(template.Id)" title="Edit this template">
+                                    <i class="bi bi-pencil-square"></i> Edit
+                                </button>
+                                 <button class="btn btn-sm btn-outline-info" @onclick="() => ViewResponses(template.Id)" title="View submitted responses"> @* Add this button *@
+                                    <i class="bi bi-card-list"></i> Responses
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDeleteTemplate(template.Id, template.Title)" title="Delete this template">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </CardActions>
+                        </TemplateCard>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    @* --- My Submitted Responses Section --- *@
+    <div class="responses-section mt-5 pt-4 border-top">
+        <h2 class="mb-4">My Submitted Responses</h2>
+
+        @if (isLoadingResponses)
+        {
+             <div class="text-center">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <p class="mt-2 text-muted">Loading your responses...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(responseErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @responseErrorMessage
+            </div>
+        }
+        else if (userResponses == null || !userResponses.Any())
+        {
+            <div class="text-center p-4 border rounded bg-light">
+                 <i class="bi bi-card-list display-4 text-muted"></i>
+                 <p class="mt-3">You haven't submitted any responses yet.</p>
+                 <button class="btn btn-outline-secondary mt-2" @onclick='() => Navigation.NavigateTo("/search")'>
+                    <i class="bi bi-search me-1"></i> Find Templates to Fill
+                 </button>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Form/Template Title</th>
+                            <th scope="col">Submitted On</th>
+                            <th scope="col" class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var response in userResponses)
+                        {
+                            <tr>
+                                <td>@(response.Form?.Template?.Title ?? response.Form?.Name ?? "Unknown Form")</td>
+                                <td>@response.SubmissionDate.ToLocalTime().ToString("g")</td>
+                                <td class="text-end">
+                                    @* TODO: Add link/button to view response details when implemented *@
+                                    <button class="btn btn-sm btn-outline-info disabled" title="View Details (Not Implemented)">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+</div>
+
+@code {
+    private List<Template>? userTemplates;
+    private List<FormResponse>? userResponses; // Add list for responses
+    private bool isLoadingTemplates = true;
+    private bool isLoadingResponses = true; // Add loading state for responses
+    private string? templateErrorMessage;
+    private string? responseErrorMessage; // Add error message for responses
+    private string? currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoadingTemplates = true;
+        isLoadingResponses = true; // Start loading responses
+        templateErrorMessage = null;
+        responseErrorMessage = null;
+        currentUserId = CurrentUserService.GetUserId();
+
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            templateErrorMessage = "Could not verify user identity.";
+            responseErrorMessage = "Could not verify user identity.";
+            isLoadingTemplates = false;
+            isLoadingResponses = false;
+            return;
+        }
+
+        // Load templates and responses concurrently
+        var loadTemplatesTask = LoadTemplatesAsync(currentUserId);
+        var loadResponsesTask = LoadResponsesAsync(currentUserId);
+
+        await Task.WhenAll(loadTemplatesTask, loadResponsesTask);
+
+        isLoadingTemplates = false; // Mark templates loading complete
+        isLoadingResponses = false; // Mark responses loading complete
+    }
+
+    private async Task LoadTemplatesAsync(string userId)
+    {
+        try
+        {
+            var templates = await TemplateService.GetUserTemplatesAsync(userId);
+            userTemplates = templates.ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading user templates for user {UserId}", userId);
+            templateErrorMessage = "Failed to load your templates.";
+        }
+    }
+
+     private async Task LoadResponsesAsync(string userId)
+    {
+        try
+        {
+            var responses = await FormResponseService.GetUserResponsesAsync(userId);
+            userResponses = responses.ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading user responses for user {UserId}", userId);
+            responseErrorMessage = "Failed to load your submitted responses.";
+        }
+    }
+
+    private void NavigateToCreateTemplate()
+    {
+        // Navigate to the form builder in 'template creation' mode
+        // Use forceLoad: true to ensure a proper page reload that will allow drafts to be found
+        Navigation.NavigateTo("/form-builder?mode=template", true);
+    }
+
+    private void EditTemplate(int templateId)
+    {
+        Navigation.NavigateTo($"/form-builder/{templateId}?mode=template");
+    }
+
+    private void ViewResponses(int templateId) // Add this method
+    {
+        Navigation.NavigateTo($"/responses/view/template/{templateId}");
+    }
+
+    private async Task ConfirmDeleteTemplate(int templateId, string templateTitle)
+    {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the template '{templateTitle}'? This action cannot be undone.");
+        if (confirmed)
+        {
+            await DeleteTemplateAsync(templateId);
+        }
+    }
+
+    private async Task DeleteTemplateAsync(int templateId)
+    {
+        isLoadingTemplates = true; // Show loading indicator during delete
+        templateErrorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            await TemplateService.DeleteTemplateAsync(templateId);
+            userTemplates?.RemoveAll(t => t.Id == templateId);
+            Logger.LogInformation("Template {TemplateId} deleted successfully by user {UserId}.", templateId, currentUserId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting template {TemplateId} by user {UserId}", templateId, currentUserId);
+            templateErrorMessage = "Failed to delete the template.";
+        }
+        finally
+        {
+            isLoadingTemplates = false;
+            StateHasChanged();
+        }
+    }
+}

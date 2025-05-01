@@ -1,0 +1,29 @@
+.badge.bg-business {
+    background-color: #0e437c !important; /* Business */
+    color: #ffffff !important;
+}
+
+.badge.bg-education {
+    background-color: #61f1f6bc !important; /*  Education */
+    color: #000000 !important;
+}
+
+.badge.bg-feedback {
+    background-color: #ddca1c !important; /*  Feedback */
+    color: #ffffff !important;
+}
+
+.badge.bg-default {
+    background-color: #5f656b !important; /* default */
+    color: #ffffff !important;
+}
+
+.badge.bg-events {
+    background-color: #ff5722 !important; /*  Events */
+    color: #ffffff !important;
+}
+
+.badge.bg-general {
+    background-color: #9e9e9e !important; /*  General */
+    color: #ffffff !important;
+}

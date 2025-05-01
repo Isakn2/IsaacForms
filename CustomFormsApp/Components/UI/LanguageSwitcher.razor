@@ -5,7 +5,8 @@
 </select>
 
 @code {
-    [Inject] NavigationManager NavManager { get; set; } = null!; // Initialized with null-forgiving operator
+    [Inject] NavigationManager NavManager { get; set; } = null!;
+    [Inject] LocalizationService LocalizationService { get; set; } = null!;
 
     private string _currentLanguage = "en-US";
     public string CurrentLanguage
@@ -16,13 +17,30 @@
             if (_currentLanguage != value)
             {
                 _currentLanguage = value;
-                ChangeLanguage(value);
+                // Use InvokeAsync to properly handle the async method call
+                InvokeAsync(() => ChangeLanguage(value));
             }
         }
     }
 
-    private void ChangeLanguage(string newLang)
+    protected override async Task OnInitializedAsync()
     {
-        NavManager.NavigateTo($"?culture={newLang}", forceLoad: true);
+        await LocalizationService.InitializeAsync();
+        _currentLanguage = LocalizationService.CurrentLanguage;
+    }
+
+    private async Task ChangeLanguage(string newLang)
+    {
+        await LocalizationService.SetLanguageAsync(newLang);
+        // Use query parameters without forcing a full page reload
+        string uri = NavManager.Uri;
+        
+        // Build the new URL with updated culture parameter
+        var uriBuilder = new UriBuilder(uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uriBuilder.Query);
+        query["culture"] = newLang;
+        uriBuilder.Query = query.ToString();
+        
+        NavManager.NavigateTo(uriBuilder.Uri.ToString());
     }
 }

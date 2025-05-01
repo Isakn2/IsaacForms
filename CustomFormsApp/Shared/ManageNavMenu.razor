@@ -1,38 +1,90 @@
-﻿@using Microsoft.AspNetCore.Identity
-@using CustomFormsApp.Data
+﻿@using CustomFormsApp.Services
+@using Microsoft.Extensions.Localization
+@inject ClerkAuthService ClerkAuth
+@inject IStringLocalizer<ManageNavMenu> Localizer
+@implements IDisposable
 
-@inject SignInManager<ApplicationUser> SignInManager
+<div class="account-settings-nav">
+    <div class="top-row ps-3 navbar navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="" aria-label="@Localizer["AccountSettings"]">
+                <i class="bi bi-gear me-2" aria-hidden="true"></i> 
+                <span>@Localizer["AccountSettings"]</span>
+            </a>
+            <button class="navbar-toggler" 
+                    @onclick="ToggleNavMenu" 
+                    aria-label="Toggle navigation"
+                    aria-expanded="@(!_collapseNavMenu)"
+                    aria-controls="account-nav-menu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
+    </div>
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">CustomFormsApp</a>
-        <button class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+    <div class="@NavMenuCssClass" id="account-nav-menu">
+        <nav class="nav flex-column">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="account/profile" Match="NavLinkMatch.Prefix">
+                    <i class="bi bi-person me-2" aria-hidden="true"></i> 
+                    <span>@Localizer["Profile"]</span>
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="account/security" Match="NavLinkMatch.Prefix">
+                    <i class="bi bi-shield-lock me-2" aria-hidden="true"></i> 
+                    <span>@Localizer["Security"]</span>
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="account/preferences" Match="NavLinkMatch.Prefix">
+                    <i class="bi bi-sliders me-2" aria-hidden="true"></i> 
+                    <span>@Localizer["Preferences"]</span>
+                </NavLink>
+            </div>
+            <div class="nav-item px-3 mt-3">
+                <hr class="dropdown-divider bg-light opacity-25 my-2" />
+                <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                    <i class="bi bi-arrow-left me-2" aria-hidden="true"></i> 
+                    <span>@Localizer["BackToApp"]</span>
+                </NavLink>
+            </div>
+        </nav>
     </div>
 </div>
 
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="oi oi-home" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
 @code {
-    private bool hasExternalLogins;
-    private bool collapseNavMenu = true;
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private bool _collapseNavMenu = false;
+    private string? NavMenuCssClass => _collapseNavMenu ? "collapse" : null;
+
+    protected override void OnInitialized()
+    {
+        // Subscribe directly
+        ClerkAuth.UserSignedIn += OnUserStateChanged;
+        // Use a lambda for UserSignedOut
+        ClerkAuth.UserSignedOut += HandleUserSignedOut;
+    }
+
+    // Handler for Sign In
+    private void OnUserStateChanged(ClerkUserDto? user) 
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    // Handler for Sign Out
+    private void HandleUserSignedOut()
+    {
+        OnUserStateChanged(null); // Call common logic
+    }
 
     private void ToggleNavMenu()
     {
-        collapseNavMenu = !collapseNavMenu;
+        _collapseNavMenu = !_collapseNavMenu;
     }
-    protected override async Task OnInitializedAsync()
+
+    public void Dispose()
     {
-        hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
+        // Unsubscribe directly
+        ClerkAuth.UserSignedIn -= OnUserStateChanged;
+        ClerkAuth.UserSignedOut -= HandleUserSignedOut;
     }
 }

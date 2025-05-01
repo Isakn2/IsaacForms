@@ -1,17 +1,7 @@
-// wwwroot/js/themeManager.js
 export function initializeTheme() {
     try {
-        const savedTheme = localStorage.getItem('theme') || 
-            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        
-        document.documentElement.setAttribute('data-bs-theme', savedTheme);
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        
-        if (document.body) {
-            document.body.classList.remove('dark-theme', 'light-theme');
-            document.body.classList.add(`${savedTheme}-theme`);
-        }
-        
+        const savedTheme = getTheme();
+        applyTheme(savedTheme);
         console.log('Theme initialized:', savedTheme);
         return savedTheme;
     } catch (e) {
@@ -23,15 +13,8 @@ export function initializeTheme() {
 export function setTheme(theme) {
     try {
         localStorage.setItem('theme', theme);
-        document.documentElement.setAttribute('data-bs-theme', theme);
-        document.documentElement.setAttribute('data-theme', theme);
-        
-        if (document.body) {
-            document.body.classList.remove('dark-theme', 'light-theme');
-            document.body.classList.add(`${theme}-theme`);
-        }
-        
-        console.log('Theme changed:', theme);
+        applyTheme(theme);
+        console.log('Theme changed to:', theme);
         return true;
     } catch (e) {
         console.error("Error setting theme:", e);
@@ -48,3 +31,24 @@ export function getTheme() {
         return 'light';
     }
 }
+
+// Private helper function
+function applyTheme(theme) {
+    // Apply to document
+    document.documentElement.setAttribute('data-bs-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    
+    // Apply to body classes
+    if (document.body) {
+        document.body.classList.remove('dark-theme', 'light-theme');
+        document.body.classList.add(`${theme}-theme`);
+    }
+}
+
+// Listen for system theme changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    // Only auto-switch if user hasn't explicitly chosen a theme
+    if (!localStorage.getItem('theme')) {
+        setTheme(e.matches ? 'dark' : 'light');
+    }
+});

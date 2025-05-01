@@ -1,0 +1,104 @@
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using Microsoft.Extensions.Localization
+@inject ITemplateService TemplateService
+@inject ILogger<PopularTemplates> Logger
+@inject NavigationManager Navigation
+@inject IStringLocalizer<PopularTemplates> Localizer
+
+<div class="popular-templates-section mb-5">
+    <h2 class="mb-3">@Localizer["PopularTemplates"]</h2>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">@Localizer["Loading"]</span>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i> @Localizer["CouldNotLoadTemplates"] @errorMessage
+        </div>
+    }
+    else if (popularTemplates == null || !popularTemplates.Any())
+    {
+        <p class="text-muted">@Localizer["NoTemplatesAvailable"]</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">@Localizer["Title"]</th>
+                        <th scope="col">@Localizer["Author"]</th>
+                        <th scope="col" class="text-center">@Localizer["Responses"]</th>
+                        <th scope="col" class="text-end">@Localizer["Action"]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var template in popularTemplates)
+                    {
+                        <tr>
+                            <td>
+                                <a href="#" @onclick="() => NavigateToTemplate(template.Id)" @onclick:preventDefault>@template.Title</a>
+                            </td>
+                            <td>@(template.CreatedBy?.Username ?? Localizer["Unknown"])</td>
+                            <td class="text-center">@template.ResponseCount</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => UseTemplate(template.Id)" title="Use this template">
+                                    <i class="bi bi-plus-square"></i> @Localizer["Use"]
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Count { get; set; } = 5; // Default number of templates to show
+
+    private List<Template>? popularTemplates;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            var templates = await TemplateService.GetPopularPublicTemplatesAsync(Count);
+            popularTemplates = templates.ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading popular public templates component.");
+            errorMessage = "An unexpected error occurred."; // Keep error message generic
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void UseTemplate(int templateId)
+    {
+        Navigation.NavigateTo($"/form-builder?templateId={templateId}");
+    }
+
+     private void NavigateToTemplate(int templateId)
+    {
+        // TODO: Navigate to a ViewTemplate page when it exists
+        // For now, maybe navigate to use it? Or do nothing.
+        // Navigation.NavigateTo($"/templates/view/{templateId}"); // Example future route
+         UseTemplate(templateId); // For now, just navigate to use
+    }
+}

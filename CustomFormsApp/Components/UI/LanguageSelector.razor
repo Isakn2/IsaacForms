@@ -1,0 +1,113 @@
+@using Microsoft.AspNetCore.Components
+@using CustomFormsApp.Services
+@inject LocalizationService LocalizationService
+@inject NavigationManager NavigationManager
+@implements IAsyncDisposable
+
+<div class="language-selector">
+    <div class="dropdown">
+        <button class="btn btn-sm @ButtonClass dropdown-toggle d-flex align-items-center" 
+                type="button" 
+                id="languageDropdown" 
+                data-bs-toggle="dropdown" 
+                aria-expanded="false"
+                disabled="@_isLoading">
+            <i class="bi bi-globe2 me-1"></i>
+            <span class="@TextClass">@GetLanguageDisplayName(_currentLanguage)</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="languageDropdown">
+            <li><h6 class="dropdown-header">Select Language</h6></li>
+            @foreach (var lang in _supportedLanguages)
+            {
+                <li>
+                    <button class="dropdown-item @(lang.Code == _currentLanguage ? "active" : "")" 
+                            @onclick="() => SetLanguage(lang.Code)"
+                            disabled="@_isLoading">
+                        <span class="me-2">@lang.Flag</span> @lang.Name
+                    </button>
+                </li>
+            }
+        </ul>
+    </div>
+</div>
+
+@code {
+    private record LanguageOption(string Code, string Name, string Flag);
+    
+    [Parameter]
+    public string ButtonClass { get; set; } = "btn-outline-secondary";
+    
+    [Parameter]
+    public string TextClass { get; set; } = "d-none d-sm-inline";
+    
+    [Parameter]
+    public EventCallback<string> OnLanguageChanged { get; set; }
+    
+    private readonly LanguageOption[] _supportedLanguages = new[]
+    {
+        new LanguageOption("en-US", "English", "🇺🇸"),
+        new LanguageOption("es-ES", "Español", "🇪🇸")
+        // Add more languages as needed
+    };
+    
+    private string _currentLanguage = "en-US"; // Default to English
+    private bool _isLoading = false;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize the language service and get the current language
+        await LocalizationService.InitializeAsync();
+        _currentLanguage = LocalizationService.CurrentLanguage;
+        
+        // Subscribe to language changes
+        LocalizationService.LanguageChanged += OnLanguageChangedHandler;
+    }
+    
+    private async Task OnLanguageChangedHandler()
+    {
+        _currentLanguage = LocalizationService.CurrentLanguage;
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    private async Task SetLanguage(string language)
+    {
+        if (_currentLanguage == language) return;
+        
+        _isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            // Set the language using the service
+            await LocalizationService.SetLanguageAsync(language);
+            
+            // Notify parent component if callback is provided
+            if (OnLanguageChanged.HasDelegate)
+            {
+                await OnLanguageChanged.InvokeAsync(language);
+            }
+            
+            // Update current language without forcing page reload
+            _currentLanguage = language;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Language change error: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private string GetLanguageDisplayName(string code)
+        => _supportedLanguages.FirstOrDefault(l => l.Code == code)?.Name ?? "English";
+        
+    public async ValueTask DisposeAsync()
+    {
+        // Unsubscribe from language changes
+        LocalizationService.LanguageChanged -= OnLanguageChangedHandler;
+        await Task.CompletedTask;
+    }
+}

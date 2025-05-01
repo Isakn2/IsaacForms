@@ -1,0 +1,179 @@
+@page "/Account/CompleteLogin"
+@using Microsoft.AspNetCore.Components.Web
+@using CustomFormsApp.Services
+@inject ClerkAuthService ClerkAuth
+@inject NavigationManager NavigationManager
+@inject ILogger<CompleteLogin> Logger
+@inject IConfiguration Configuration
+@inject IJSRuntime JSRuntime
+@layout AccountLayout
+@implements IDisposable
+
+<PageTitle>Completing Login...</PageTitle>
+
+<div class="text-center mt-5">
+    @if (loading)
+    {
+        <h3>Completing your login</h3>
+        <div class="spinner-border mt-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-3">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            @errorMessage
+            <div class="mt-3">
+                <button class="btn btn-primary me-2" @onclick="RetryInitialization">Try Again</button>
+                <button class="btn btn-outline-secondary" @onclick="NavigateToLogin">Return to Login</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string errorMessage = string.Empty;
+    private bool loading = true;
+    private bool initialized = false;
+    private bool redirectAttempted = false;
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Try to initialize immediately on component initialization
+        if (!initialized)
+        {
+            initialized = true;
+            await InitializeClerkAsync();
+        }
+    }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !redirectAttempted)
+        {
+            // Set flag to avoid multiple redirect attempts
+            redirectAttempted = true;
+            
+            // Small delay to ensure JS interop is ready
+            await Task.Delay(250);
+            
+            // Check if user is already authenticated (might be the case if clerk auth completed)
+            await CheckAuthAndRedirect();
+        }
+    }
+    
+    private async Task InitializeClerkAsync()
+    {
+        loading = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+        
+        try
+        {
+            // Wait for ClerkAuthService initialization
+            await ClerkAuth.WaitForInitializationAsync(); 
+
+            // Check authentication state and redirect
+            await CheckAuthAndRedirect();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during Clerk initialization or authentication check");
+            errorMessage = $"An error occurred: {ex.Message}. Please try again.";
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CheckAuthAndRedirect()
+    {
+        try {
+            // Verify Clerk is ready
+            bool isReady = await ClerkAuth.IsClerkReadyAsync();
+            
+            if (!isReady)
+            {
+                Logger.LogWarning("Clerk is not ready yet, waiting longer...");
+                // Extend the wait time for Clerk to be ready
+                await Task.Delay(2000);
+                isReady = await ClerkAuth.IsClerkReadyAsync();
+                
+                if (!isReady)
+                {
+                    Logger.LogError("Clerk failed to become ready after extended waiting");
+                    errorMessage = "Authentication service is not responding. Please try logging in again.";
+                    loading = false;
+                    StateHasChanged();
+                    return;
+                }
+            }
+            
+            // Add direct check with JS Interop for authentication state
+            var isSignedIn = await JSRuntime.InvokeAsync<bool>("clerkInterop.isSignedIn");
+            var currentUser = await JSRuntime.InvokeAsync<object>("clerkInterop.getCurrentUser");
+            
+            Logger.LogInformation("Direct JS check - isSignedIn: {IsSignedIn}, currentUser: {HasUser}", 
+                isSignedIn, currentUser != null);
+            
+            // Now check for authentication through either Clerk service or direct JS check
+            if (ClerkAuth.IsAuthenticated || isSignedIn || currentUser != null)
+            {
+                var destination = string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl;
+                
+                // Try to clean up any auth-related parameters from the URL if present
+                if (destination.Contains("?"))
+                {
+                    var uri = new Uri(destination);
+                    var cleanParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                    cleanParams.Remove("__clerkcallback");
+                    
+                    var uriBuilder = new UriBuilder(uri);
+                    uriBuilder.Query = cleanParams.ToString() ?? string.Empty;
+                    destination = uriBuilder.Uri.ToString();
+                }
+                
+                Logger.LogInformation("User is authenticated, redirecting to {Destination}", destination);
+                
+                // Use a short delay before navigation
+                await Task.Delay(500);
+                
+                // Perform the navigation with force reload
+                NavigationManager.NavigateTo(destination, true);
+                return;
+            }
+            
+            // If both checks fail, user is not authenticated
+            Logger.LogWarning("User not authenticated after all checks");
+            errorMessage = "Authentication could not be completed. Please try signing in again.";
+            loading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error in CheckAuthAndRedirect");
+            errorMessage = $"An error occurred during authentication: {ex.Message}";
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RetryInitialization()
+    {
+        await InitializeClerkAsync();
+    }
+
+    private void NavigateToLogin()
+    {
+        NavigationManager.NavigateTo("/Account/Login", true);
+    }
+
+    public void Dispose()
+    {
+        // Cleanup any event handlers if needed
+    }
+}

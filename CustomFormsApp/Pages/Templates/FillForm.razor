@@ -1,0 +1,584 @@
+@page "/forms/fill/{TemplateId:int}"
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Data.Enums
+@using CustomFormsApp.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Text.Json
+@inject ITemplateService TemplateService
+@inject ICurrentUserService CurrentUserService
+@inject NavigationManager Navigation
+@inject ILogger<FillForm> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IFormResponseService FormResponseService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Fill Form: @(template?.Title ?? "Loading...")</PageTitle>
+
+<div class="container mt-4">
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading form...</span>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+        </div>
+        <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/templates")'>
+            <i class="bi bi-arrow-left"></i> Back to Templates
+        </button>
+    }
+    else if (template == null)
+    {
+        <div class="alert alert-warning" role="alert">
+            Template not found or is not available.
+        </div>
+        <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/templates")'>
+            <i class="bi bi-arrow-left"></i> Back to Templates
+        </button>
+    }
+    else
+    {
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h2 class="mb-0">@template.Title</h2>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrWhiteSpace(template.Description))
+                {
+                    <p class="card-text">@template.Description</p>
+                }
+
+                <EditForm Model="formModel" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+
+                    @if (template.Questions == null || !template.Questions.Any())
+                    {
+                        <p class="text-muted">This template has no questions.</p>
+                    }
+                    else
+                    {
+                        @foreach (var question in template.Questions.OrderBy(q => q.Order))
+                        {
+                            <div class="mb-4 p-3 border rounded bg-light">
+                                @* --- Single Line Text --- *@
+                                @if (question.Type == QuestionType.SingleLineText)
+                                {
+                                    <label for="@($"question-{question.Id}")" class="form-label fw-bold">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</label>
+                                    @if (!string.IsNullOrWhiteSpace(question.Description)) { <div class="form-text mb-2">@question.Description</div> }
+                                    <input type="text" id="@($"question-{question.Id}")" class="form-control" 
+                                          value="@GetAnswerValue(question.Id)" 
+                                          @oninput="e => UpdateAnswer(question.Id, e.Value?.ToString())" 
+                                          placeholder="@question.Type.GetPlaceholder()" />
+                                }
+                                @* --- Multi Line Text --- *@
+                                else if (question.Type == QuestionType.MultiLineText)
+                                {
+                                    <label for="@($"question-{question.Id}")" class="form-label fw-bold">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</label>
+                                    @if (!string.IsNullOrWhiteSpace(question.Description)) { <div class="form-text mb-2">@question.Description</div> }
+                                    <textarea id="@($"question-{question.Id}")" class="form-control" 
+                                             rows="3" placeholder="@question.Type.GetPlaceholder()"
+                                             @oninput="e => UpdateAnswer(question.Id, e.Value?.ToString())">@GetAnswerValue(question.Id)</textarea>
+                                }
+                                @* --- Checkbox Group --- *@
+                                else if (question.Type == QuestionType.Checkbox)
+                                {
+                                    <label class="form-label fw-bold d-block">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</label>
+                                    @if (!string.IsNullOrWhiteSpace(question.Description)) { <div class="form-text mb-2">@question.Description</div> }
+                                    @if (question.Options != null && question.Options.Any())
+                                    {
+                                        @foreach (var option in string.Join('\n', question.Options).Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries))
+                                        {
+                                            var currentOption = option.Trim();
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox"
+                                                       id="@($"question-{question.Id}-{currentOption.GetHashCode()}")"
+                                                       checked="@IsCheckboxChecked(question.Id, currentOption)"
+                                                       @onchange="e => HandleCheckboxChange(question.Id, currentOption, (bool)(e.Value ?? false))" />
+                                                <label class="form-check-label" for="@($"question-{question.Id}-{currentOption.GetHashCode()}")">
+                                                    @currentOption
+                                                </label>
+                                            </div>
+                                        }
+                                        <div class="mt-1 text-muted small">
+                                            <span>Selected: @GetAnswerValue(question.Id)</span>
+                                        </div>
+                                    }
+                                    else { <p class="text-danger small">No options defined for this checkbox question.</p> }
+                                }
+                                @* --- Radio Button Group --- *@
+                                else if (question.Type == QuestionType.MultipleChoice)
+                                {
+                                    <label class="form-label fw-bold d-block">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</label>
+                                    @if (!string.IsNullOrWhiteSpace(question.Description)) { <div class="form-text mb-2">@question.Description</div> }
+                                    @if (question.Options != null && question.Options.Any())
+                                    {
+                                        @foreach (var option in string.Join('\n', question.Options).Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries))
+                                        {
+                                            var currentOption = option.Trim();
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio"
+                                                       name="@($"question-{question.Id}")"
+                                                       id="@($"question-{question.Id}-{currentOption.GetHashCode()}")"
+                                                       value="@currentOption"
+                                                       checked="@(GetAnswerValue(question.Id) == currentOption)"
+                                                       @onchange="e => HandleRadioChange(question.Id, currentOption)" />
+                                                <label class="form-check-label" for="@($"question-{question.Id}-{currentOption.GetHashCode()}")">
+                                                    @currentOption
+                                                </label>
+                                            </div>
+                                        }
+                                        <div class="mt-1 text-muted small">
+                                            @if (!string.IsNullOrEmpty(GetAnswerValue(question.Id)))
+                                            {
+                                                <span>Selected: @GetAnswerValue(question.Id)</span>
+                                            }
+                                        </div>
+                                    }
+                                    else { <p class="text-danger small">No options defined for this multiple choice question.</p> }
+                                }
+                                @* --- Dropdown --- *@
+                                else if (question.Type == QuestionType.Dropdown)
+                                {
+                                    <label for="@($"question-{question.Id}")" class="form-label fw-bold">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</label>
+                                    @if (!string.IsNullOrWhiteSpace(question.Description)) { <div class="form-text mb-2">@question.Description</div> }
+                                    <select id="@($"question-{question.Id}")" class="form-select" 
+                                           value="@GetAnswerValue(question.Id)"
+                                           @onchange="e => UpdateAnswer(question.Id, e.Value?.ToString())">
+                                        <option value="">Select an option...</option>
+                                        @if (question.Options != null && question.Options.Any())
+                                        {
+                                            @foreach (var option in string.Join('\n', question.Options).Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries))
+                                            {
+                                                var currentOption = option.Trim();
+                                                <option value="@currentOption">@currentOption</option>
+                                            }
+                                        }
+                                    </select>
+                                    <div class="mt-1 text-muted small">
+                                        @if (!string.IsNullOrEmpty(GetAnswerValue(question.Id)))
+                                        {
+                                            <span>Selected: @GetAnswerValue(question.Id)</span>
+                                        }
+                                    </div>
+                                }
+                                @* --- Date --- *@
+                                else if (question.Type == QuestionType.Date)
+                                {
+                                    <label for="@($"question-{question.Id}")" class="form-label fw-bold">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</label>
+                                    @if (!string.IsNullOrWhiteSpace(question.Description)) { <div class="form-text mb-2">@question.Description</div> }
+                                    <input type="date" id="@($"question-{question.Id}")" class="form-control"
+                                          value="@GetAnswerValue(question.Id)"
+                                          @onchange="e => UpdateAnswer(question.Id, e.Value?.ToString())" />
+                                    <div class="mt-1 text-muted small">
+                                        @if (!string.IsNullOrEmpty(GetAnswerValue(question.Id)))
+                                        {
+                                            <span>Selected: @GetAnswerValue(question.Id)</span>
+                                        }
+                                    </div>
+                                }
+                                @* --- Number --- *@
+                                else if (question.Type == QuestionType.Number)
+                                {
+                                    <label for="@($"question-{question.Id}")" class="form-label fw-bold">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</label>
+                                    @if (!string.IsNullOrWhiteSpace(question.Description)) { <div class="form-text mb-2">@question.Description</div> }
+                                    <input type="number" id="@($"question-{question.Id}")" class="form-control"
+                                          value="@GetAnswerValue(question.Id)"
+                                          @oninput="e => UpdateAnswer(question.Id, e.Value?.ToString())"
+                                          placeholder="@question.Type.GetPlaceholder()" />
+                                }
+                                @* --- Email --- *@
+                                else if (question.Type == QuestionType.Email)
+                                {
+                                    <label for="@($"question-{question.Id}")" class="form-label fw-bold">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</label>
+                                    @if (!string.IsNullOrWhiteSpace(question.Description)) { <div class="form-text mb-2">@question.Description</div> }
+                                    <input type="email" id="@($"question-{question.Id}")" class="form-control"
+                                          value="@GetAnswerValue(question.Id)"
+                                          @oninput="e => UpdateAnswer(question.Id, e.Value?.ToString())"
+                                          placeholder="@question.Type.GetPlaceholder()" />
+                                }
+                                @* --- Scale --- *@
+                                else if (question.Type == QuestionType.Scale)
+                                {
+                                    <label class="form-label fw-bold d-block">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</label>
+                                    @if (!string.IsNullOrWhiteSpace(question.Description)) { <div class="form-text mb-2">@question.Description</div> }
+                                    <div class="scale-container">
+                                        <div class="btn-group" role="group" aria-label="Scale rating">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                var scaleValue = i.ToString();
+                                                var isActive = GetAnswerValue(question.Id) == scaleValue;
+                                                <input type="radio" class="btn-check" name="@($"question-{question.Id}")" 
+                                                       id="@($"question-{question.Id}-{i}")" 
+                                                       value="@scaleValue"
+                                                       checked="@isActive"
+                                                       @onchange="e => HandleScaleChange(question.Id, scaleValue)" autocomplete="off">
+                                                <label class="btn @(isActive ? "btn-primary" : "btn-outline-primary")" for="@($"question-{question.Id}-{i}")">@i</label>
+                                            }
+                                        </div>
+                                        <div class="mt-1 text-muted small">
+                                            @if (!string.IsNullOrEmpty(GetAnswerValue(question.Id)))
+                                            {
+                                                <span>Selected: @GetAnswerValue(question.Id)</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="text-warning">Unsupported question type: @question.Type</p>
+                                }
+                            </div>
+                        }
+
+                        <div class="mt-4 d-flex justify-content-end">
+                            <button type="submit" class="btn btn-success" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>Submitting...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-check-lg me-1"></i>
+                                    <span>Submit Response</span>
+                                }
+                            </button>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(submitErrorMessage))
+                    {
+                        <div class="alert alert-danger mt-3" role="alert">
+                            @submitErrorMessage
+                        </div>
+                    }
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .scale-container {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e");
+    }
+
+    input[type="radio"].form-check-input:checked {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e");
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+
+    input[type="checkbox"].form-check-input:checked {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e");
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+
+    .btn-check:checked + .btn-outline-primary {
+        background-color: #0d6efd;
+        color: white;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int TemplateId { get; set; }
+
+    private Template? template;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private bool isSubmitting;
+    private string? submitErrorMessage;
+    private bool isAuthenticated;
+    private string? currentUserId;
+    private FormModel formModel = new FormModel();
+    private System.Timers.Timer? autoSaveTimer;
+    private bool hasRestoredData = false;
+    private bool savedDataExists = false;
+
+    // Model to use with EditForm to avoid direct dictionary binding
+    private class FormModel
+    {
+        public Dictionary<int, string> Answers { get; set; } = new Dictionary<int, string>();
+    }
+
+    // Helper method to safely get answer values
+    private string GetAnswerValue(int questionId)
+    {
+        return formModel.Answers.TryGetValue(questionId, out var value) ? value : string.Empty;
+    }
+
+    // Update answer for any field type
+    private void UpdateAnswer(int questionId, string? value)
+    {
+        formModel.Answers[questionId] = value ?? string.Empty;
+        StateHasChanged();
+    }
+
+    protected override void OnInitialized()
+    {
+        // Start auto-save timer
+        autoSaveTimer = new System.Timers.Timer(10000); // Save every 10 seconds
+        autoSaveTimer.Elapsed += AutoSaveTimer_Elapsed;
+        autoSaveTimer.AutoReset = true;
+        autoSaveTimer.Start();
+    }
+    
+    private void AutoSaveTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        InvokeAsync(() => SaveFormProgress());
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        template = null;
+        formModel = new FormModel(); // Reset form model
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+        if (isAuthenticated)
+        {
+            currentUserId = CurrentUserService.GetUserId();
+        }
+        else
+        {
+            errorMessage = "You must be logged in to fill out this form.";
+            isLoading = false;
+            return;
+        }
+
+        if (TemplateId <= 0)
+        {
+            errorMessage = "Invalid Template ID provided.";
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            template = await TemplateService.GetTemplateAsync(TemplateId);
+
+            if (template == null)
+            {
+                errorMessage = "Template not found or is not available.";
+            }
+            else if (template.Questions != null)
+            {
+                foreach (var question in template.Questions)
+                {
+                    formModel.Answers.Add(question.Id, string.Empty);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading template {TemplateId} for filling.", TemplateId);
+            errorMessage = "An error occurred while loading the form.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && template != null && !hasRestoredData)
+        {
+            await TryRestoreProgress();
+        }
+    }
+
+    private bool IsCheckboxChecked(int questionId, string option)
+    {
+        if (formModel.Answers.TryGetValue(questionId, out var value) && !string.IsNullOrEmpty(value))
+        {
+            return value.Split(',').Contains(option.Trim());
+        }
+        return false;
+    }
+
+    private void HandleCheckboxChange(int questionId, string option, bool isChecked)
+    {
+        option = option.Trim();
+        List<string> selectedOptions = new List<string>();
+
+        if (formModel.Answers.TryGetValue(questionId, out var currentValue) && !string.IsNullOrEmpty(currentValue))
+        {
+            selectedOptions = currentValue.Split(',').ToList();
+        }
+
+        if (isChecked)
+        {
+            if (!selectedOptions.Contains(option))
+            {
+                selectedOptions.Add(option);
+            }
+        }
+        else
+        {
+            selectedOptions.Remove(option);
+        }
+
+        formModel.Answers[questionId] = string.Join(",", selectedOptions);
+        StateHasChanged();
+    }
+
+    private void HandleRadioChange(int questionId, string option)
+    {
+        formModel.Answers[questionId] = option;
+        StateHasChanged();
+    }
+
+    private void HandleScaleChange(int questionId, string value)
+    {
+        formModel.Answers[questionId] = value;
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        submitErrorMessage = null;
+        StateHasChanged();
+
+        if (template?.Questions != null)
+        {
+            foreach (var question in template.Questions)
+            {
+                if (question.IsRequired && string.IsNullOrWhiteSpace(formModel.Answers.GetValueOrDefault(question.Id)))
+                {
+                    submitErrorMessage = $"Please answer the required question: '{question.Text.Substring(0, Math.Min(question.Text.Length, 30))}...'";
+                    isSubmitting = false;
+                    StateHasChanged();
+                    return;
+                }
+            }
+        }
+
+        try
+        {
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                submitErrorMessage = "User ID is missing. Please log in again.";
+                isSubmitting = false;
+                StateHasChanged();
+                return;
+            }
+
+            var response = await FormResponseService.SubmitResponseAsync(TemplateId, currentUserId, formModel.Answers);
+            
+            // Clear saved form data on successful submission
+            await ClearFormProgress();
+            
+            Navigation.NavigateTo($"/forms/fill/{TemplateId}/success");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error submitting response for TemplateId {TemplateId}", TemplateId);
+            submitErrorMessage = "An unexpected error occurred while submitting your response.";
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+    
+    // Form data persistence methods
+    private async Task SaveFormProgress()
+    {
+        if (template == null || isSubmitting) return;
+        
+        try
+        {
+            // Only save if there's at least one answer with content
+            var hasAnswers = formModel.Answers.Any(a => !string.IsNullOrWhiteSpace(a.Value));
+            if (!hasAnswers) return;
+            
+            var answersJson = JsonSerializer.Serialize(formModel.Answers);
+            await JSRuntime.InvokeVoidAsync("saveFormProgress", TemplateId, answersJson);
+            savedDataExists = true;
+            
+            // Only invoke StateHasChanged if there's a UI change needed
+            if (!hasRestoredData)
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving form progress for template {TemplateId}", TemplateId);
+        }
+    }
+    
+    private async Task TryRestoreProgress()
+    {
+        if (template == null) return;
+        
+        try
+        {
+            var savedData = await JSRuntime.InvokeAsync<string>("getFormProgress", TemplateId);
+            if (!string.IsNullOrEmpty(savedData))
+            {
+                var savedAnswers = JsonSerializer.Deserialize<Dictionary<int, string>>(savedData);
+                if (savedAnswers != null)
+                {
+                    // Restore answers but only for questions that exist in the current template
+                    foreach (var question in template.Questions)
+                    {
+                        if (savedAnswers.TryGetValue(question.Id, out var savedValue))
+                        {
+                            formModel.Answers[question.Id] = savedValue;
+                        }
+                    }
+                    
+                    hasRestoredData = true;
+                    savedDataExists = true;
+                    StateHasChanged();
+                    
+                    // Show a notification that data was restored
+                    await JSRuntime.InvokeVoidAsync("alert", "Your previous form progress has been restored.");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error restoring form progress for template {TemplateId}", TemplateId);
+        }
+    }
+    
+    private async Task ClearFormProgress()
+    {
+        if (!savedDataExists) return;
+        
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("clearFormProgress", TemplateId);
+            savedDataExists = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error clearing form progress for template {TemplateId}", TemplateId);
+        }
+    }
+    
+    public void Dispose()
+    {
+        autoSaveTimer?.Dispose();
+    }
+}

@@ -1,0 +1,167 @@
+@page "/forms/public"
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using Microsoft.Extensions.Localization
+@using CustomFormsApp.Components.Likes
+@inject IFormService FormService
+@inject NavigationManager Navigation
+@inject IStringLocalizer<PublicForms> Localizer
+@inject ILogger<PublicForms> Logger
+@inject ICurrentUserService CurrentUserService
+
+<PageTitle>Public Forms - Isaac Forms</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>@Localizer["PublicForms"]</h1>
+        <div>
+            <a href="/" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-house-door"></i> Home
+            </a>
+            <a href="/form-builder" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create Form
+            </a>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4">
+            @for (int i = 0; i < 6; i++)
+            {
+                <div class="col">
+                    <div class="card h-100 placeholder-glow">
+                        <div class="card-body">
+                            <h5 class="card-title placeholder col-6"></h5>
+                            <p class="card-text placeholder col-8"></p>
+                            <p class="card-text placeholder col-7"></p>
+                        </div>
+                        <div class="card-footer">
+                            <small class="placeholder col-4"></small>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (forms == null || !forms.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i> @Localizer["NoPublicFormsFound"]
+        </div>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4">
+            @foreach (var form in forms)
+            {
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">@form.Name</h5>
+                            @if (!string.IsNullOrWhiteSpace(form.Description))
+                            {
+                                <p class="card-text text-muted mb-3">@form.Description</p>
+                            }
+                            <div class="mt-auto d-flex justify-content-end">
+                                <button @onclick="() => FillForm(form.Id)" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-pencil-square me-1"></i> Fill Out
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-muted">
+                                        By @(form.CreatedBy?.FirstName ?? "Unknown") 
+                                        @(form.CreatedBy?.LastName ?? "")
+                                    </small>
+                                </div>
+                                @if (form.TemplateId.HasValue)
+                                {
+                                    <div>
+                                        <LikeButton TemplateId="@form.TemplateId.Value" />
+                                    </div>
+                                }
+                            </div>
+                            <div class="text-muted mt-1">
+                                <small>Created: @form.CreatedDate.ToLocalTime().ToString("g")</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Form>? forms;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            // Get all public forms regardless of creator - request up to 100 public forms to show all
+            var allPublicForms = await FormService.GetPublicFormsAsync(100);
+            forms = allPublicForms.ToList();
+            
+            Logger.LogInformation("Loaded {Count} public forms", forms.Count);
+
+            // Log details of each form for debugging
+            foreach (var form in forms)
+            {
+                Logger.LogInformation("Public Form: Id={Id}, Name='{Name}', Description='{Description}', Creator='{Creator}'", 
+                    form.Id, form.Name, form.Description, form.CreatedBy?.FirstName);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading public forms");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+    
+    // Handle filling a form - if it has a template ID, redirect to template fill
+    // Otherwise, navigate to the proper form fill page
+    private async Task FillForm(int formId)
+    {
+        try {
+            var form = await FormService.GetFormAsync(formId);
+            if (form == null)
+            {
+                Logger.LogWarning("Attempted to fill form with ID {FormId} but it was not found", formId);
+                return;
+            }
+            
+            // Get the current user ID
+            var currentUserId = CurrentUserService.GetUserId();
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                // Redirect to login if not authenticated
+                Navigation.NavigateTo($"/Account/Login?ReturnUrl={Uri.EscapeDataString($"/forms/public")}", forceLoad: true);
+                return;
+            }
+            
+            // If the form is based on a template, use the template ID for filling
+            if (form.TemplateId.HasValue && form.TemplateId.Value > 0)
+            {
+                Navigation.NavigateTo($"/forms/fill/{form.TemplateId.Value}");
+            }
+            else
+            {
+                // Otherwise, get or create a form-specific template using current user ID
+                var formForTemplate = await FormService.GetOrCreateFormForTemplateAsync(formId, currentUserId);
+                Navigation.NavigateTo($"/forms/fill/{formForTemplate.TemplateId}");
+            }
+        }
+        catch (Exception ex) {
+            Logger.LogError(ex, "Error navigating to fill form with ID {FormId}", formId);
+        }
+    }
+}

@@ -1,0 +1,39 @@
+.avatar-circle.avatar-sm[b-ir15u0q2ig] {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.avatar-initials[b-ir15u0q2ig] {
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+
+.avatar-img[b-ir15u0q2ig] {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.no-caret-dropdown[b-ir15u0q2ig]::after {
+    display: none;
+}
+
+.dropdown-menu[b-ir15u0q2ig] {
+    border-radius: 0.375rem;
+}
+
+.dropdown-item[b-ir15u0q2ig] {
+    padding: 0.5rem 1rem;
+}
+
+.dropdown-item:active[b-ir15u0q2ig], .dropdown-item:focus[b-ir15u0q2ig] {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+    color: var(--bs-body-color);
+}

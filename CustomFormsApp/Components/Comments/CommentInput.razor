@@ -1,0 +1,133 @@
+@using CustomFormsApp.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.ComponentModel.DataAnnotations
+
+@inject ICommentService CommentService
+@inject ICurrentUserService CurrentUserService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<CommentInput> Logger
+
+@if (isAuthenticated)
+{
+    <div class="comment-input-section mt-3 border-top pt-3">
+        <h5 class="mb-2">Add a comment</h5>
+        <EditForm Model="this" OnValidSubmit="HandleSubmitComment">
+            <DataAnnotationsValidator /> @* Use if adding validation attributes to properties *@
+
+            <div class="mb-2">
+                <InputTextArea @bind-Value="newCommentText" class="form-control" rows="3" placeholder="Write your comment here..." disabled="@isSubmitting" />
+                <ValidationMessage For="@(() => newCommentText)" />
+            </div>
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary" disabled="@(isSubmitting || string.IsNullOrWhiteSpace(newCommentText))">
+                    @if (isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <span>Posting...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-send me-1"></i>
+                        <span>Post Comment</span>
+                    }
+                </button>
+            </div>
+            @if (!string.IsNullOrEmpty(submitErrorMessage))
+            {
+                <div class="alert alert-danger mt-2" role="alert">
+                    @submitErrorMessage
+                </div>
+            }
+        </EditForm>
+    </div>
+}
+else
+{
+    <div class="mt-3 border-top pt-3 text-muted">
+        Please <a href="/Account/Login">log in</a> to post a comment.
+    </div>
+}
+
+
+@code {
+    [Parameter, EditorRequired]
+    public int TemplateId { get; set; }
+    [Parameter]
+    public EventCallback<Comment> OnCommentAdded { get; set; } // Callback to notify parent
+    private string? newCommentText;
+
+    private bool isSubmitting;
+    private string? submitErrorMessage;
+    private bool isAuthenticated;
+    private string? currentUserId;
+
+    private CommentInputModel commentModel = new();
+
+    // Model for the form
+    private class CommentInputModel
+    {
+        [Required] // Now recognized
+        [MinLength(1, ErrorMessage = "Comment cannot be empty.")] // Now recognized
+        [MaxLength(2000, ErrorMessage = "Comment cannot exceed 2000 characters.")] // Now recognized
+        public string Text { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+        if (isAuthenticated)
+        {
+            currentUserId = CurrentUserService.GetUserId();
+        }
+    }
+
+    private async Task HandleSubmitComment()
+    {
+        if (isSubmitting || !isAuthenticated || string.IsNullOrEmpty(currentUserId) || string.IsNullOrWhiteSpace(newCommentText))
+        {
+            return; // Should be prevented by button disable, but check anyway
+        }
+
+        isSubmitting = true;
+        submitErrorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var addedComment = await CommentService.AddCommentAsync(TemplateId, currentUserId, newCommentText);
+
+            // Clear input and notify parent
+            newCommentText = string.Empty;
+            if (OnCommentAdded.HasDelegate)
+            {
+                await OnCommentAdded.InvokeAsync(addedComment);
+            }
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+             Logger.LogWarning(ex, "Unauthorized comment attempt for TemplateId {TemplateId}", TemplateId);
+             submitErrorMessage = "Authentication error.";
+        }
+        catch (KeyNotFoundException ex)
+        {
+             Logger.LogWarning(ex, "Comment attempt on non-existent TemplateId {TemplateId}", TemplateId);
+             submitErrorMessage = "Template not found.";
+        }
+        catch (ArgumentException ex)
+        {
+             Logger.LogWarning(ex, "Invalid comment text for TemplateId {TemplateId}", TemplateId);
+             submitErrorMessage = ex.Message; // Show validation message from service
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error submitting comment for TemplateId {TemplateId} by User {UserId}", TemplateId, currentUserId);
+            submitErrorMessage = "An unexpected error occurred while posting your comment.";
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+}

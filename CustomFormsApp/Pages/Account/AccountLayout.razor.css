@@ -1,0 +1,18 @@
+.spinner-border {
+    animation: spinner-border 0.75s linear infinite;
+}
+
+@keyframes spinner-border {
+    to { transform: rotate(360deg); }
+}
+
+/* Smooth transitions for alerts */
+.alert {
+    transition: all 0.3s ease;
+}
+
+/* Disabled button styling */
+.btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}

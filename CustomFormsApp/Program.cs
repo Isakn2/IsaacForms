@@ -2,44 +2,73 @@ using Microsoft.AspNetCore.Components.Authorization;
 using CustomFormsApp.Services;
 using CustomFormsApp.Data;
 using CustomFormsApp.Data.Models;
-using CustomFormsApp.Services.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Plk.Blazor.DragDrop;
 using CustomFormsApp.Components.Account;
 using Microsoft.EntityFrameworkCore;
+using DotNetEnv;
+using System;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Cors;
+using CustomFormsApp.Middleware;
+using CustomFormsApp.Extensions;
+using Microsoft.AspNetCore.Localization;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Localization
-builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+Env.Load();
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false)
+    .AddEnvironmentVariables();
 
-// Database Configuration
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+// Process environment variable placeholders
+builder.Configuration.ProcessEnvironmentVariables();
 
-// Identity Configuration with Roles (required for admin functionality)
-// MODIFIED: Combined Identity and Authentication configuration to avoid duplicate schemes
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options => 
+// Add CORS with Clerk domains
+builder.Services.AddCors(options =>
 {
-    options.SignIn.RequireConfirmedAccount = false;
-    // Simplified password requirements for development
-    options.Password.RequireDigit = false;
-    options.Password.RequireLowercase = false;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequiredLength = 1;
-    options.User.RequireUniqueEmail = true;
-})
-.AddEntityFrameworkStores<ApplicationDbContext>()
-.AddDefaultTokenProviders()
-.AddDefaultUI() // Added to handle Identity UI pages
-.AddUserManager<UserManager<ApplicationUser>>()
-.AddRoleManager<RoleManager<IdentityRole>>()
-.AddSignInManager<SignInManager<ApplicationUser>>(); // Added for better auth flow
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(
+                "https://js.clerk.dev",
+                "https://*.clerk.accounts.dev",
+                builder.Configuration["Clerk:ApiUrl"]!
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
 
-// REMOVED: The separate AddAuthentication block that was causing the conflict
+builder.Services.AddScoped<AuthenticationStateProvider, ClerkAuthenticationStateProvider>();
+
+// Database Configuration - Use DbContextFactory
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+{
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        npgsqlOptions => {
+            npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "public");
+            // Add connection resilience
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(30),
+                errorCodesToAdd: null);
+            // Increase command timeout to handle long-running queries
+            npgsqlOptions.CommandTimeout(60);
+        });
+    
+    // Enable sensitive data logging in development
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableSensitiveDataLogging();
+    }
+});
+
+// Clerk Authentication Setup
+builder.Services.AddClerkAuth(builder.Configuration);
 
 // Authorization Policies
 builder.Services.AddAuthorization(options =>
@@ -51,56 +80,22 @@ builder.Services.AddAuthorization(options =>
         policy.Requirements.Add(new TemplateOwnerRequirement()));
 });
 
-// Register custom services
-builder.Services.AddScoped<IAuthorizationHandler, TemplateOwnerAuthorizationHandler>();
-builder.Services.AddScoped<AuthenticationStateProvider, 
-    RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
-builder.Services.AddCascadingAuthenticationState();
-
-// Cookie Configuration
-builder.Services.ConfigureApplicationCookie(options =>
-{
-    options.LoginPath = "/Account/Login";
-    options.LogoutPath = "/Account/Logout";
-    options.AccessDeniedPath = "/Account/AccessDenied";
-    options.Cookie.HttpOnly = true;
-    options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
-    options.SlidingExpiration = true;
-    
-    // Add these handlers to prevent redirect errors
-    options.Events.OnRedirectToLogin = context =>
-    {
-        if (context.Request.Path.StartsWithSegments("/api") ||
-            context.Request.Headers["Accept"].Contains("application/json"))
-        {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return Task.CompletedTask;
-        }
-        
-        context.Response.Redirect(context.RedirectUri);
-        return Task.CompletedTask;
-    };
-    
-    options.Events.OnRedirectToAccessDenied = context =>
-    {
-        if (context.Request.Path.StartsWithSegments("/api") ||
-            context.Request.Headers["Accept"].Contains("application/json"))
-        {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            return Task.CompletedTask;
-        }
-        
-        context.Response.Redirect(context.RedirectUri);
-        return Task.CompletedTask;
-    };
-});
-
 // Application Services
 builder.Services.AddScoped<ITemplateService, TemplateService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IFormService, FormService>();
+builder.Services.AddScoped<FormBuilderService>();
+builder.Services.AddScoped<IFormBuilderService, FormBuilderService>();
 builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<ICloudStorageService, AzureBlobStorageService>();
 builder.Services.AddScoped<ThemeService>();
+builder.Services.AddScoped<IAuthorizationHandler, TemplateOwnerAuthorizationHandler>();
+builder.Services.AddScoped<ITopicService, TopicService>();
+builder.Services.AddScoped<ILikeService, LikeService>();
+builder.Services.AddScoped<ICommentService, CommentService>();
+builder.Services.AddScoped<IFormResponseService, FormResponseService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<LocalizationService>();
 
 // HttpClient Configuration
 builder.Services.AddHttpClient("ServerAPI", client => 
@@ -111,81 +106,72 @@ builder.Services.AddHttpClient("ServerAPI", client =>
 // Blazor and UI Services
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor(options => options.DetailedErrors = true);
-builder.Services.AddBlazorDragDrop(); // For question reordering
+builder.Services.AddBlazorDragDrop();
 builder.Services.AddHttpContextAccessor();
+
+// Configure localization
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.AddSingleton<LocalizationHelper>();
 
 // Full-text search configuration
 builder.Services.AddScoped<IFullTextSearchService, SqlFullTextSearchService>();
 
 var app = builder.Build();
+Console.WriteLine("Application built successfully");
+
 // Set service provider for ThemeService static methods
 ThemeService.SetServiceProvider(app.Services.CreateScope().ServiceProvider);
+
+// Ensure topics are seeded
+await TopicSeeder.SeedTopicsAsync(app.Services);
 
 // Middleware Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
     app.UseMigrationsEndPoint();
+    
+    // Use regular static files with caching enabled, same as production
+    app.UseStaticFiles();
 }
 else
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
+    app.UseStaticFiles(); // Regular static files in production
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
-app.UseRequestLocalization(); // For multilingual support
+
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture("en-US"), // Default to English
+    SupportedCultures = new[]
+    {
+        new CultureInfo("en-US"), // English (United States)
+        new CultureInfo("en"),    // English (Neutral)
+        new CultureInfo("es-ES"), // Spanish (Spain)
+        new CultureInfo("es"),    // Spanish (Neutral)
+        // Add other languages you support
+    },
+    SupportedUICultures = new[]
+    {
+        new CultureInfo("en-US"), // English (United States)
+        new CultureInfo("en"),    // English (Neutral)
+        new CultureInfo("es-ES"), // Spanish (Spain)
+        new CultureInfo("es"),    // Spanish (Neutral)
+        // Add other languages you support
+    }
+});
 
 app.UseRouting();
-
+app.UseCors();
+app.UseMiddleware<ClerkScriptProxyMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapRazorPages();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
-// Seed admin role and initial admin user
-await SeedAdminUserAndRoles(app);
-
+Console.WriteLine("Starting application server...");
 app.Run();
-
-async Task SeedAdminUserAndRoles(WebApplication app)
-{
-    using var scope = app.Services.CreateScope();
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-    
-    // Create Admin role if not exists
-    if (!await roleManager.RoleExistsAsync("Admin"))
-    {
-        await roleManager.CreateAsync(new IdentityRole("Admin"));
-    }
-    
-    // Create initial admin user if none exists
-    var adminEmail = "admin@example.com";
-    var adminUser = await userManager.FindByEmailAsync(adminEmail);
-    if (adminUser == null)
-    {
-        adminUser = new ApplicationUser 
-        { 
-            UserName = adminEmail, 
-            Email = adminEmail,
-            EmailConfirmed = true,
-            CreatorId = null  // Explicitly set to null for the first user
-        };
-        
-        var result = await userManager.CreateAsync(adminUser, "Admin@123");
-        if (result.Succeeded)
-        {
-            await userManager.AddToRoleAsync(adminUser, "Admin");
-        }
-        else
-        {
-            var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-            logger.LogError("Failed to create admin user: {Errors}", 
-                string.Join(", ", result.Errors.Select(e => e.Description)));
-        }
-    }
-}

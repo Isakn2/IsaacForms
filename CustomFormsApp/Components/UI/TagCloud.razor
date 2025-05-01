@@ -1,0 +1,221 @@
+@page "/tags"
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using Microsoft.Extensions.Localization
+@inject ITopicService TopicService
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<TagCloud> Localizer
+@implements IAsyncDisposable
+
+<div class="tag-cloud @(IsEmbedded ? "tag-cloud-embedded" : "")">
+    @if (!IsEmbedded)
+    {
+        <h3>@Localizer["ExploreTopics"]</h3>
+    }
+    
+    @if (loadingError != null)
+    {
+        <div class="alert alert-warning">
+            Error loading topics: @loadingError
+        </div>
+    }
+    
+    <div class="tags">
+        @if (isLoading)
+        {
+            <div class="loading">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">@Localizer["Loading"]</span>
+                </div>
+            </div>
+        }
+        else if (topics?.Any() == true)
+        {
+            @foreach (var topic in topics)
+            {
+                <a href="/search?topic=@Uri.EscapeDataString(topic.Name)" 
+                   class="tag @GetTagSizeClass(topicWeights.GetValueOrDefault(topic.Id, 0))">
+                    @topic.Name
+                </a>
+            }
+        }
+        else
+        {
+            <div class="alert alert-info">No topics available (IsEmbedded: @IsEmbedded)</div>
+        }
+    </div>
+</div>
+
+<style>
+    /* TagCloud component styling */
+    .tag-cloud {
+        margin: 1rem 0;
+        border: 1px dashed transparent;
+        padding: 0.5rem;
+    }
+
+    .tag-cloud-embedded {
+        margin-bottom: 1.5rem;
+        background-color: #fafafa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .tag-cloud .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+
+    .tag-cloud .tag {
+        border-radius: 50rem; /* Pill shape */
+        padding: 0.5rem 1rem;
+        background-color: #f0f8ff;
+        color: #0d6efd;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        border: 1px solid #dee2e6;
+        display: inline-flex;
+        align-items: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .tag-cloud .tag:hover {
+        background-color: #0d6efd;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    }
+
+    .tag-cloud .tag-sm {
+        font-size: 0.85rem;
+    }
+
+    .tag-cloud .tag-md {
+        font-size: 1rem;
+        font-weight: 500;
+    }
+
+    .tag-cloud .tag-lg {
+        font-size: 1.15rem;
+        font-weight: 600;
+    }
+
+    .tag-cloud .loading {
+        display: flex;
+        justify-content: center;
+        padding: 1.5rem 0;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public bool IsEmbedded { get; set; } = false;
+
+    [Parameter]
+    public int MaxTopics { get; set; } = 20;
+
+    private List<Topic>? topics;
+    private Dictionary<int, int> topicWeights = new Dictionary<int, int>();
+    private System.Threading.CancellationTokenSource? cts;
+    private ILogger<TagCloud>? logger;
+    private string? loadingError;
+    private bool isLoading = true;
+
+    [Inject]
+    protected ILogger<TagCloud> Logger { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        logger = Logger;
+        cts = new System.Threading.CancellationTokenSource();
+        logger.LogInformation("TagCloud component initialized on page: {Page}, IsEmbedded: {IsEmbedded}", 
+            NavigationManager.Uri, IsEmbedded);
+        
+        await LoadTopics();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // If the embedded state changes, reload the topics
+        if (topics == null || !topics.Any())
+        {
+            logger?.LogInformation("Parameters set, reloading topics. IsEmbedded: {IsEmbedded}", IsEmbedded);
+            await LoadTopics();
+        }
+    }
+
+    private async Task LoadTopics()
+    {
+        try
+        {
+            // Add debug checkpoint
+            logger?.LogInformation("Attempting to fetch topics from TopicService");
+            
+            topics = await TopicService.GetTopicsAsync();
+            
+            logger?.LogInformation("TopicService.GetTopicsAsync returned {Count} topics", 
+                topics?.Count ?? 0);
+            
+            if (topics == null || !topics.Any())
+            {
+                loadingError = "No topics found in database. Please check the migration was applied correctly.";
+                logger?.LogWarning(loadingError);
+                topics = new List<Topic>();
+            }
+            else
+            {
+                // Assign random weights for visual variety
+                // In a real app, you might calculate these based on usage frequency
+                Random random = new Random();
+                foreach (var topic in topics)
+                {
+                    topicWeights[topic.Id] = random.Next(1, 15); // Random weight between 1 and 15
+                }
+                
+                // Only keep MaxTopics if we're embedded on another page
+                if (IsEmbedded && topics.Count > MaxTopics)
+                {
+                    // Sort by weight to keep the most relevant topics
+                    topics = topics
+                        .OrderByDescending(t => topicWeights[t.Id])
+                        .Take(MaxTopics)
+                        .ToList();
+                }
+                
+                logger?.LogInformation("Loaded {Count} topics from database, IsEmbedded: {IsEmbedded}", 
+                    topics.Count, IsEmbedded);
+            }
+        }
+        catch (Exception ex)
+        {
+            loadingError = ex.Message;
+            logger?.LogError(ex, "Error loading topics: {Message}", ex.Message);
+            topics = new List<Topic>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetTagSizeClass(int weight)
+    {
+        if (weight > 10) return "tag-lg";
+        if (weight > 5) return "tag-md";
+        return "tag-sm";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (cts != null)
+        {
+            cts.Cancel();
+            cts.Dispose();
+            cts = null;
+        }
+        await ValueTask.CompletedTask;
+    }
+}

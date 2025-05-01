@@ -15,9 +15,14 @@ public class SearchService : ISearchService
 
     public async Task<IEnumerable<Template>> SearchTemplatesAsync(string query)
     {
+        if (string.IsNullOrWhiteSpace(query))
+            return Enumerable.Empty<Template>();
+
         return await _context.Templates
-            .Where(t => EF.Functions.Contains(t.Title, query) ||
-                        EF.Functions.Contains(t.Description, query))
+            .Where(t =>
+                EF.Functions.ILike(t.Title, $"%{query}%") ||
+                (t.Description != null && EF.Functions.ILike(t.Description, $"%{query}%"))
+            )
             .ToListAsync();
     }
 }

@@ -1,0 +1,221 @@
+@page "/search"
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using CustomFormsApp.Components.Template
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IFullTextSearchService SearchService
+@inject NavigationManager Navigation
+@inject ILogger<Search> Logger
+@inject ICurrentUserService CurrentUserService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Search Templates</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="mb-4">Search Templates</h1>
+
+    @* Search Input Form *@
+    <div class="search-bar mb-4 p-3 bg-light border rounded">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Search by keyword, tag, or topic..."
+                   @bind="currentSearchTerm" @bind:event="oninput" @onkeyup="HandleSearchInputKeyUp" />
+            <button class="btn btn-primary" @onclick="TriggerSearch">
+                <i class="bi bi-search"></i> Search
+            </button>
+        </div>
+        @* Optional: Add filters later (e.g., radio buttons for scope: Public, My Templates, Liked) *@
+        @if (!string.IsNullOrEmpty(Tag))
+        {
+            <div class="mt-2">
+                <span class="badge bg-info text-dark">
+                    Filtering by Tag: @Tag
+                    <button type="button" class="btn-close btn-sm ms-1" aria-label="Clear tag filter" @onclick="ClearTagFilter"></button>
+                </span>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Topic))
+        {
+            <div class="mt-2">
+                <span class="badge bg-primary text-white">
+                    Filtering by Topic: @Topic
+                    <button type="button" class="btn-close btn-sm ms-1" aria-label="Clear topic filter" @onclick="ClearTopicFilter"></button>
+                </span>
+            </div>
+        }
+    </div>
+
+    @* Search Results *@
+    <div class="search-results">
+        @if (isLoading)
+        {
+            <div class="text-center my-5">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading results...</span>
+                </div>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+            </div>
+        }
+        else if (searchResults == null || !searchResults.Any())
+        {
+            @if (!string.IsNullOrEmpty(SearchQuery) || !string.IsNullOrEmpty(Tag) || !string.IsNullOrEmpty(Topic))
+            {
+                <div class="alert alert-info" role="alert">
+                    No templates found matching your criteria.
+                </div>
+            }
+            else
+            {
+                 <p class="text-muted">Enter a search term or click a tag/topic to find templates.</p>
+            }
+        }
+        else
+        {
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                @foreach (var template in searchResults)
+                {
+                    <div class="col">
+                        <TemplateCard TemplateItem="template" />
+                    </div>
+                }
+            </div>
+            @* TODO: Add Pagination if results can be large *@
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? SearchQuery { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Tag { get; set; }
+    
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Topic { get; set; }
+
+    private string currentSearchTerm = string.Empty;
+    private List<Template>? searchResults;
+    private bool isLoading;
+    private string? errorMessage;
+    private string? currentUserId;
+    private bool isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+        if (isAuthenticated)
+        {
+            currentUserId = CurrentUserService.GetUserId();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Update the input box if the query parameter changes
+        currentSearchTerm = SearchQuery ?? string.Empty;
+
+        // Perform search based on query parameters
+        await PerformSearch();
+    }
+
+    private async Task PerformSearch()
+    {
+        isLoading = true;
+        errorMessage = null;
+        searchResults = null;
+        StateHasChanged(); // Show loading state
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(Topic))
+            {
+                Logger.LogInformation("Searching templates by topic: {Topic}", Topic);
+                // Search by topic
+                var results = await SearchService.SearchTemplatesByTopicAsync(Topic);
+                searchResults = results.ToList();
+            }
+            else if (!string.IsNullOrWhiteSpace(Tag))
+            {
+                Logger.LogInformation("Searching templates by tag: {Tag}", Tag);
+                // Use the specific method for tag search from IFullTextSearchService
+                var results = await SearchService.SearchTemplatesByTagAsync(Tag);
+                searchResults = results.ToList();
+            }
+            else if (!string.IsNullOrWhiteSpace(SearchQuery))
+            {
+                Logger.LogInformation("Searching public templates by query: {Query}", SearchQuery);
+                // Defaulting to public search for now. Could add filters later.
+                var results = await SearchService.SearchPublicTemplatesAsync(SearchQuery);
+                searchResults = results.ToList();
+            }
+            else
+            {
+                // No search query, tag, or topic provided
+                searchResults = new List<Template>(); // Empty list, not loading
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error performing search for query '{Query}', tag '{Tag}', or topic '{Topic}'", SearchQuery, Tag, Topic);
+            errorMessage = "An error occurred while searching. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged(); // Update UI with results or error
+        }
+    }
+
+    private void HandleSearchInputKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            TriggerSearch();
+        }
+    }
+
+    private void TriggerSearch()
+    {
+        // Navigate to update query parameters, which triggers OnParametersSetAsync
+        var uri = Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["searchQuery"] = string.IsNullOrWhiteSpace(currentSearchTerm) ? null : currentSearchTerm,
+            ["tag"] = null, // Clear tag when performing a keyword search
+            ["topic"] = null // Clear topic when performing a keyword search
+        });
+        Navigation.NavigateTo(uri);
+    }
+
+    private void ClearTagFilter()
+    {
+        // Navigate to update query parameters, removing the tag
+        var uri = Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["searchQuery"] = SearchQuery, // Keep existing search query if any
+            ["tag"] = null,
+            ["topic"] = Topic // Keep topic if set
+        });
+        Navigation.NavigateTo(uri);
+    }
+    
+    private void ClearTopicFilter()
+    {
+        // Navigate to update query parameters, removing the topic
+        var uri = Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["searchQuery"] = SearchQuery, // Keep existing search query if any
+            ["tag"] = Tag, // Keep tag if set
+            ["topic"] = null
+        });
+        Navigation.NavigateTo(uri);
+    }
+}

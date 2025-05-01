@@ -1,7 +1,132 @@
 ﻿@page "/"
+@using CustomFormsApp.Components.Home
+@using CustomFormsApp.Components.UI
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<Home> Localizer
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Home - Custom Forms</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container mt-4">
 
-Welcome to your new app.
+    <div class="p-5 mb-4 bg-light rounded-3 text-center">
+        <div class="container-fluid py-5">
+            <h1 class="display-5 fw-bold">@Localizer["WelcomeMessage"]</h1>
+            <p class="fs-4">Create, share, and manage your forms and templates easily.</p>
+            @* Add call-to-action buttons if desired *@
+            <button class="btn btn-primary btn-lg" type="button" @onclick="NavigateToFormBuilder">@Localizer["GetStarted"]</button>
+        </div>
+    </div>
+
+    @* --- Latest Templates Section --- *@
+    <div class="text-end mb-2">
+        <a href="/templates/public" class="btn btn-sm btn-outline-primary">@Localizer["ViewAll"]</a>
+    </div>
+    <LatestTemplates Count="6" />
+
+    @* --- Public Forms Section --- *@
+    <h2 class="mb-4">@Localizer["PublicForms"]</h2>
+    <div class="text-end mb-2">
+        <a href="/forms/public" class="btn btn-sm btn-outline-primary">@Localizer["ViewAll"]</a>
+    </div>
+    <PublicForms Count="6" />
+
+    @* --- Tag Cloud --- *@
+    <div class="my-4">
+        <h2 class="mb-3">@Localizer["ExploreTopics"]</h2>
+        <TagCloud IsEmbedded="true" MaxTopics="12" />
+        <div class="text-end mt-2">
+            <a href="/tags" class="btn btn-sm btn-outline-primary">@Localizer["ViewAllTopics"]</a>
+        </div>
+    </div>
+
+    @* --- Hidden Admin Link --- *@
+    <div class="text-center mt-5 pt-5 text-muted">
+        <small><a href="#" @onclick="ShowAdminModal" @onclick:preventDefault>System Administration</a></small>
+    </div>
+</div>
+
+@* Admin Password Modal *@
+@if (showAdminModal)
+{
+    <div class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Administrator Access</h5>
+                    <button type="button" class="btn-close" @onclick="CloseAdminModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="adminPassword">Enter administrator password:</label>
+                        <input type="password" class="form-control mt-2" id="adminPassword" @bind="adminPassword" @onkeyup="HandleKeyPress" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(passwordError))
+                    {
+                        <div class="alert alert-danger mt-3">
+                            @passwordError
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAdminModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="ValidatePassword">Access Admin</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Password modal state
+    private bool showAdminModal = false;
+    private string adminPassword = "";
+    private string passwordError = "";
+    
+    // Correct password - in a real app, this should be stored securely, not hardcoded
+    private const string CORRECT_PASSWORD = "AdminAccess123!"; 
+
+    private void ShowAdminModal()
+    {
+        showAdminModal = true;
+        adminPassword = "";
+        passwordError = "";
+    }
+
+    private void CloseAdminModal()
+    {
+        showAdminModal = false;
+        adminPassword = "";
+        passwordError = "";
+    }
+
+    private void ValidatePassword()
+    {
+        if (adminPassword == CORRECT_PASSWORD)
+        {
+            // Password is correct, navigate to the admin page
+            showAdminModal = false;
+            NavigationManager.NavigateTo("/admin/make-admin");
+        }
+        else
+        {
+            // Password is incorrect, show error
+            passwordError = "Incorrect password. Please try again.";
+        }
+    }
+    
+    // Handle Enter key press
+    private void HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            ValidatePassword();
+        }
+    }
+
+    private void NavigateToFormBuilder()
+    {
+        NavigationManager.NavigateTo("/form-builder");
+    }
+}

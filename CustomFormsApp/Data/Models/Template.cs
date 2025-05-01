@@ -3,8 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq; // Added for LINQ operations
-using CustomFormsApp.Data;
+using System.Linq;
 
 namespace CustomFormsApp.Data.Models
 {
@@ -30,15 +29,17 @@ namespace CustomFormsApp.Data.Models
         [MaxLength(100)]
         public string? Topic { get; set; }
 
-        public bool IsPublic { get; set; }
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public DateTime? LastModifiedDate { get; set; }
+        public bool IsPublic { get; set; } = false;
         public bool IsDeleted { get; set; } = false;
 
-        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
-        public DateTime UpdatedDate { get; set; } = DateTime.UtcNow;
-        public DateTime? DeletedDate { get; set; }
+        [Required]
+        public string CreatedById { get; set; } = string.Empty; // Added FK property
 
-        public string CreatorId { get; set; } = null!;
-        public ApplicationUser Creator { get; set; } = null!;
+        // Navigation property for CreatedBy
+        [ForeignKey("CreatedById")]
+        public virtual ClerkUserDbModel? CreatedBy { get; set; }
 
         // Relationships
         public virtual ICollection<Question> Questions { get; set; } = new List<Question>();

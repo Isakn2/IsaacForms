@@ -1,0 +1,257 @@
+is_global = true
+build_property.TargetFramework = net9.0
+build_property.TargetFramework = net9.0
+build_property.TargetPlatformMinVersion = 
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = CustomFormsApp
+build_property.RootNamespace = CustomFormsApp
+build_property.ProjectDir = /Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.RazorLangVersion = 9.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = true
+build_property.MSBuildProjectDirectory = /Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp
+build_property._RazorSourceGeneratorDebug = 
+build_property.EffectiveAnalysisLevelStyle = 9.0
+build_property.EnableCodeStyleSeverity = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/App.razor]
+build_metadata.AdditionalFiles.TargetPath = QXBwLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Account/AuthControls.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9BY2NvdW50L0F1dGhDb250cm9scy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Account/RedirectToLogin.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9BY2NvdW50L1JlZGlyZWN0VG9Mb2dpbi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Account/Shared/ExternalLoginPicker.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9BY2NvdW50L1NoYXJlZC9FeHRlcm5hbExvZ2luUGlja2VyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Account/Shared/StatusMessage.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9BY2NvdW50L1NoYXJlZC9TdGF0dXNNZXNzYWdlLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Admin/AllResponsesList.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9BZG1pbi9BbGxSZXNwb25zZXNMaXN0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Admin/AllTemplatesList.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9BZG1pbi9BbGxUZW1wbGF0ZXNMaXN0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Admin/SiteStats.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9BZG1pbi9TaXRlU3RhdHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Admin/UserList.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9BZG1pbi9Vc2VyTGlzdC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Comments/CommentInput.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9Db21tZW50cy9Db21tZW50SW5wdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Comments/CommentList.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9Db21tZW50cy9Db21tZW50TGlzdC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Home/LatestTemplates.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9Ib21lL0xhdGVzdFRlbXBsYXRlcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Home/PopularTemplates.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9Ib21lL1BvcHVsYXJUZW1wbGF0ZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Home/PublicForms.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9Ib21lL1B1YmxpY0Zvcm1zLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Layout/ManageLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9MYXlvdXQvTWFuYWdlTGF5b3V0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Likes/LikeButton.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9MaWtlcy9MaWtlQnV0dG9uLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/QuestionEditor.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9RdWVzdGlvbkVkaXRvci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Routes.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9Sb3V0ZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Shared/Pagination.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9TaGFyZWQvUGFnaW5hdGlvbi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/UI/LanguageSelector.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9VSS9MYW5ndWFnZVNlbGVjdG9yLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/UI/LanguageSwitcher.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9VSS9MYW5ndWFnZVN3aXRjaGVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/UI/TagCloud.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9VSS9UYWdDbG91ZC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/UI/ThemeInitializer.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9VSS9UaGVtZUluaXRpYWxpemVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/UI/ThemeSelector.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9VSS9UaGVtZVNlbGVjdG9yLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Account/CompleteLogin.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWNjb3VudC9Db21wbGV0ZUxvZ2luLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Account/Login.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWNjb3VudC9Mb2dpbi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Account/Register.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWNjb3VudC9SZWdpc3Rlci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Admin/CleanupQuestions.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vQ2xlYW51cFF1ZXN0aW9ucy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Admin/Dashboard.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vRGFzaGJvYXJkLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Admin/DbTest.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vRGJUZXN0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Admin/MakeAdmin.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vTWFrZUFkbWluLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Admin/ViewResponseDetails.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWRtaW4vVmlld1Jlc3BvbnNlRGV0YWlscy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Error.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvRXJyb3IucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Forms/MyForms.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvRm9ybXMvTXlGb3Jtcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Forms/PublicForms.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvRm9ybXMvUHVibGljRm9ybXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Home.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvSG9tZS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Responses/AllResponses.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvUmVzcG9uc2VzL0FsbFJlc3BvbnNlcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Responses/ViewResponses.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvUmVzcG9uc2VzL1ZpZXdSZXNwb25zZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Search.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvU2VhcmNoLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Templates/FillForm.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvVGVtcGxhdGVzL0ZpbGxGb3JtLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Templates/FillSuccess.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvVGVtcGxhdGVzL0ZpbGxTdWNjZXNzLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Templates/PublicTemplates.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvVGVtcGxhdGVzL1B1YmxpY1RlbXBsYXRlcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Templates/ViewTemplate.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvVGVtcGxhdGVzL1ZpZXdUZW1wbGF0ZS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Users/UserDetails.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvVXNlcnMvVXNlckRldGFpbHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Users/UserProfile.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvVXNlcnMvVXNlclByb2ZpbGUucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Shared/ManageNavMenu.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkL01hbmFnZU5hdk1lbnUucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Shared/NavMenu.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkL05hdk1lbnUucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = X0ltcG9ydHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Home/TagCloud.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9Ib21lL1RhZ0Nsb3VkLnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-edpgzecga2
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Layout/MainLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9MYXlvdXQvTWFpbkxheW91dC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-6mw8d0tnuw
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Components/Template/TemplateCard.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50cy9UZW1wbGF0ZS9UZW1wbGF0ZUNhcmQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-mszvgy1m64
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Account/AccountLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQWNjb3VudC9BY2NvdW50TGF5b3V0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = b-43emrck545
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Forms/FormBuilder.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvRm9ybXMvRm9ybUJ1aWxkZXIucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = b-18pwdv12j6
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/Forms/FormTemplates.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvRm9ybXMvRm9ybVRlbXBsYXRlcy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-w86ay7l7vq
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Shared/LoginDisplay.razor]
+build_metadata.AdditionalFiles.TargetPath = U2hhcmVkL0xvZ2luRGlzcGxheS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-ir15u0q2ig
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/_Host.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvX0hvc3QuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/isaacsilvagutierrez/Documents/DataAnalysis/Itransition/Project/IsaacForms/CustomFormsApp/Pages/_LoginPartial.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvX0xvZ2luUGFydGlhbC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 

@@ -1,23 +1,17 @@
-// ThemeInitializer.razor
 @inject IJSRuntime JSRuntime
 @inject ThemeService ThemeService
 @implements IDisposable
 
 @code {
-    private bool _initialized = false;
-    private IJSObjectReference? _module;
-    
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && !_initialized)
+        if (firstRender)
         {
-            try
-            {
-                _initialized = true;
-                _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/themeManager.js");
-                var theme = await _module.InvokeAsync<string>("initializeTheme");
+            try {
+                // Get theme from localStorage via JS
+                var theme = await JSRuntime.InvokeAsync<string>("appInterop.theme.get");
                 
-                // Update ThemeService without causing re-renders during initialization
+                // Set theme in ThemeService to match browser setting
                 if (!string.IsNullOrEmpty(theme) && theme != ThemeService.CurrentTheme)
                 {
                     ThemeService.SetTheme(theme);
@@ -25,17 +19,13 @@
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Theme initialization error: {ex.Message}");
+                Console.Error.WriteLine($"Theme initialization error: {ex}");
             }
         }
     }
     
     public void Dispose()
     {
-        // Clean up JS module
-        if (_module != null)
-        {
-            _ = _module.DisposeAsync();
-        }
+        // Nothing to dispose since we're not using any JS module references
     }
 }

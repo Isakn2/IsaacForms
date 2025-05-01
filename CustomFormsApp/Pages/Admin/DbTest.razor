@@ -1,0 +1,216 @@
+@page "/admin/db-test"
+@using Microsoft.EntityFrameworkCore
+@using CustomFormsApp.Data
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
+@inject NavigationManager Navigation
+@inject ICurrentUserService CurrentUserService
+@inject ILogger<DbTest> Logger
+
+<PageTitle>Database Test</PageTitle>
+
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">Database Diagnosis</h3>
+        </div>
+        <div class="card-body">
+            <h4>Database Connection</h4>
+            <div class="mb-4">
+                <button class="btn btn-primary" @onclick="TestDatabaseConnection">
+                    Test Database Connection
+                </button>
+            </div>
+
+            @if (isLoading)
+            {
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            }
+            
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">
+                    <h5>Error</h5>
+                    <p>@errorMessage</p>
+                </div>
+            }
+            
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success">
+                    <h5>Success</h5>
+                    <p>@successMessage</p>
+                </div>
+            }
+
+            <h4 class="mt-4">Database Stats</h4>
+            @if (dbStats != null)
+            {
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card bg-light mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">Users</h5>
+                                <p class="card-text display-4">@dbStats.UserCount</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">Templates</h5>
+                                <p class="card-text display-4">@dbStats.TemplateCount</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">Forms</h5>
+                                <p class="card-text display-4">@dbStats.FormCount</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <h4 class="mt-4">Create Test Template</h4>
+            <div class="mb-4">
+                <button class="btn btn-success" @onclick="CreateSampleTemplate" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    }
+                    Create Sample Template
+                </button>
+                <button class="btn btn-secondary ms-2" @onclick="GoToDashboard">
+                    Return to Admin Dashboard
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isLoading = false;
+    private string? errorMessage;
+    private string? successMessage;
+    private DbStats? dbStats;
+
+    private class DbStats
+    {
+        public int UserCount { get; set; }
+        public int TemplateCount { get; set; }
+        public int FormCount { get; set; }
+    }
+
+    private async Task TestDatabaseConnection()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            using var dbContext = await DbContextFactory.CreateDbContextAsync();
+            
+            // Test connection by performing a simple query
+            var canConnect = await dbContext.Database.CanConnectAsync();
+            
+            if (canConnect)
+            {
+                successMessage = "Successfully connected to the database!";
+                
+                // Get database stats
+                dbStats = new DbStats
+                {
+                    UserCount = await dbContext.Users.CountAsync(),
+                    TemplateCount = await dbContext.Templates.IgnoreQueryFilters().CountAsync(),
+                    FormCount = await dbContext.Templates.Where(t => !t.IsDeleted).CountAsync()
+                };
+            }
+            else
+            {
+                errorMessage = "Failed to connect to the database.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error connecting to database: {ex.Message}";
+            Logger.LogError(ex, "Database connection test failed");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CreateSampleTemplate()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var userId = CurrentUserService.GetUserId();
+            if (string.IsNullOrEmpty(userId))
+            {
+                errorMessage = "Unable to determine current user. Please make sure you're logged in.";
+                return;
+            }
+
+            using var dbContext = await DbContextFactory.CreateDbContextAsync();
+            
+            // Create a sample template
+            var template = new Template
+            {
+                Title = "Sample Template " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+                Description = "This is a sample template created for testing purposes.",
+                IsPublic = true,
+                CreatedById = userId,
+                CreatedDate = DateTime.UtcNow,
+                LastModifiedDate = DateTime.UtcNow
+            };
+
+            // Add a sample question
+            template.Questions.Add(new Question
+            {
+                Text = "Sample Question",
+                Description = "This is a sample question for the template.",
+                Type = CustomFormsApp.Data.Enums.QuestionType.SingleLineText,
+                IsRequired = true,
+                Order = 1
+            });
+
+            dbContext.Templates.Add(template);
+            await dbContext.SaveChangesAsync();
+
+            successMessage = $"Successfully created sample template with ID: {template.Id}";
+            
+            // Refresh stats
+            await TestDatabaseConnection();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error creating sample template: {ex.Message}";
+            Logger.LogError(ex, "Sample template creation failed");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/admin/dashboard");
+    }
+}

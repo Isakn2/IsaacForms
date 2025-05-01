@@ -1,27 +1,41 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema; 
 
 namespace CustomFormsApp.Data.Models
 {
     public class Form
     {
         public int Id { get; set; }
-        public string CreatorId { get; set; } = null!;
-        public ApplicationUser Creator { get; set; } = null!;
-        
+
         [Required]
+        [MaxLength(200)]
         public string Name { get; set; } = string.Empty;
-        
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        // Foreign Key for CreatedBy
+        [Required]
+        public string CreatedById { get; set; } = string.Empty; // Added FK property
+        // Navigation property for CreatedBy
+        [ForeignKey("CreatedById")]
+        public virtual ClerkUserDbModel? CreatedBy { get; set; } // Added navigation property
+        // Foreign Key for Template (optional)
+        public int? TemplateId { get; set; }
         [Required]
         public string Description { get; set; } = string.Empty;
-        
-        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedDate { get; set; } = DateTime.UtcNow;
+        // Navigation property for Template
+        [ForeignKey("TemplateId")]
+        public virtual Template? Template { get; set; }
+
+        // Navigation properties
+        public virtual ICollection<Question> Questions { get; set; } = new List<Question>();
+        public virtual ICollection<FormResponse> Responses { get; set; } = new List<FormResponse>(); 
         
-        public Template? Template { get; set; }
-        public int? TemplateId { get; set; }
+        [NotMapped]
+        public string? Topic { get; set; }
         
-        public ICollection<Question> Questions { get; set; } = new List<Question>();
+        // Property for making forms public - visible to all users
+        public bool IsPublic { get; set; }
     }
 }

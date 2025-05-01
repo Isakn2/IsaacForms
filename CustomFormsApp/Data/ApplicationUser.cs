@@ -9,7 +9,6 @@ namespace CustomFormsApp.Data
 {
     public class ApplicationUser : IdentityUser
     {
-        // Make CreatorId nullable or provide a default
         public string? CreatorId { get; set; }
         
         // Self-referencing relationship

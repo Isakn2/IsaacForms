@@ -1,0 +1,83 @@
+@page "/admin/cleanup-questions"
+@attribute [Authorize]
+@using CustomFormsApp.Services
+@inject ITemplateService TemplateService
+@inject ILogger<CleanupQuestions> Logger
+
+<PageTitle>Cleanup Duplicate Questions</PageTitle>
+
+<div class="container my-4">
+    <h1>Cleanup Duplicate Questions</h1>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            Cleanup Specific Template
+        </div>
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label for="templateId" class="form-label">Template ID:</label>
+                    <input type="number" id="templateId" class="form-control" @bind="templateId" />
+                </div>
+                <div class="col-md-6">
+                    <button class="btn btn-warning" @onclick="CleanupTemplate" disabled="@isCleaning">
+                        @if (isCleaning)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Cleaning up...</span>
+                        }
+                        else
+                        {
+                            <span>Cleanup Template Questions</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert @alertClass alert-dismissible fade show">
+            @message
+            <button type="button" class="btn-close" @onclick="() => message = null"></button>
+        </div>
+    }
+</div>
+
+@code {
+    private int templateId;
+    private bool isCleaning = false;
+    private string? message;
+    private string alertClass = "alert-info";
+    
+    private async Task CleanupTemplate()
+    {
+        if (templateId <= 0)
+        {
+            message = "Please enter a valid template ID.";
+            alertClass = "alert-warning";
+            return;
+        }
+        
+        try
+        {
+            isCleaning = true;
+            
+            await TemplateService.CleanupDuplicateQuestionsAsync(templateId);
+            
+            message = $"Successfully cleaned up duplicate questions for template ID {templateId}.";
+            alertClass = "alert-success";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error cleaning up duplicate questions for template {TemplateId}", templateId);
+            message = $"Error: {ex.Message}";
+            alertClass = "alert-danger";
+        }
+        finally
+        {
+            isCleaning = false;
+        }
+    }
+}

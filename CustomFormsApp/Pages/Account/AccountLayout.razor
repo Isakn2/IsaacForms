@@ -1,0 +1,33 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager NavigationManager
+@using Microsoft.AspNetCore.Components
+@inject ClerkAuthService ClerkAuth
+@inject ILogger<AccountLayout> Logger
+
+<PageTitle>@FullTitle</PageTitle>
+
+<div class="container-fluid container-md">
+    <CascadingAuthenticationState>
+        @if (ClerkAuth.IsInitializing)
+        {
+            <div class="text-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Initializing authentication...</p>
+            </div>
+        }
+        else
+        {
+            @Body
+        }
+    </CascadingAuthenticationState>
+</div>
+
+@code {
+    [Parameter]
+    public string PageTitle { get; set; } = "Account";
+
+    private string FullTitle => $"{PageTitle} - IsaacForms";
+}

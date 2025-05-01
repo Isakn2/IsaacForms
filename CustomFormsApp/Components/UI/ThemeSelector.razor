@@ -1,3 +1,4 @@
+// ThemeSelector.razor
 @using CustomFormsApp.Components.UI
 @inject IJSRuntime JSRuntime
 
@@ -21,8 +22,8 @@
     {
         try
         {
-            // Get theme from localStorage via our JS method
-            var savedTheme = await JSRuntime.InvokeAsync<string>("getTheme");
+            // Get theme from localStorage via our appInterop object
+            var savedTheme = await JSRuntime.InvokeAsync<string>("appInterop.theme.get");
             selectedTheme = !string.IsNullOrEmpty(savedTheme) ? savedTheme : "light";
             
             // If the theme from localStorage differs from what parent provided, update parent
@@ -51,8 +52,8 @@
     {
         selectedTheme = e.Value?.ToString() ?? "light";
         
-        // Use the JS method from our site.js file
-        await JSRuntime.InvokeVoidAsync("setTheme", selectedTheme);
+        // Use the appInterop object method
+        await JSRuntime.InvokeVoidAsync("appInterop.theme.set", selectedTheme);
         
         // Notify parent component
         if (CurrentThemeChanged.HasDelegate)

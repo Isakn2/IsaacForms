@@ -1,4 +1,3 @@
-// SqlFullTextSearchService.cs
 using CustomFormsApp.Data;
 using CustomFormsApp.Data.Models;
 using Microsoft.EntityFrameworkCore;
@@ -17,43 +16,80 @@ public class SqlFullTextSearchService : IFullTextSearchService
         _context = context;
     }
 
+    // PostgreSQL-compatible search using ILIKE and full-text search
     public async Task<IEnumerable<Template>> SearchTemplatesAsync(string query, bool includeDeleted = false)
     {
         if (string.IsNullOrWhiteSpace(query))
             return Enumerable.Empty<Template>();
 
-        // Use raw SQL with parameterization for safety
-        FormattableString sql = $@"
-            SELECT t.* FROM Templates t
-            LEFT JOIN TemplateTags tt ON tt.TemplateId = t.Id
-            LEFT JOIN Tags tag ON tag.Id = tt.TagId
-            WHERE {(includeDeleted ? "" : "t.IsDeleted = 0 AND ")}
-            (CONTAINS(t.Title, {query}) OR 
-            CONTAINS(t.Description, {query}) OR
-            CONTAINS(tag.Name, {query}))
-            ORDER BY t.CreatedDate DESC";
-
-        return await _context.Templates
-            .FromSqlInterpolated(sql)
-            .Include(t => t.Creator)
-            .Include(t => t.TemplateTags)   
+        // Use ILIKE for simple search, or use full-text search if you want more advanced matching
+        var templates = _context.Templates
+            .Include(t => t.CreatedBy)
+            .Include(t => t.TemplateTags)
                 .ThenInclude(tt => tt.Tag)
             .Include(t => t.Questions)
             .AsNoTracking()
-            .ToListAsync();
+            .Where(t => (includeDeleted || !t.IsDeleted) &&
+                (
+                    EF.Functions.ILike(t.Title, $"%{query}%") ||
+                    (t.Description != null && EF.Functions.ILike(t.Description, $"%{query}%")) ||
+                    t.TemplateTags.Any(tt => EF.Functions.ILike(tt.Tag.Name, $"%{query}%"))
+                ))
+            .OrderByDescending(t => t.CreatedDate);
 
+        return await templates.ToListAsync();
+    }
+
+    public async Task<IEnumerable<Template>> SearchTemplatesByTagAsync(string tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag))
+            return Enumerable.Empty<Template>();
+
+        return await _context.Templates
+            .Include(t => t.CreatedBy)
+            .Include(t => t.TemplateTags)
+                .ThenInclude(tt => tt.Tag)
+            .Where(t => !t.IsDeleted && t.TemplateTags.Any(tt => EF.Functions.ILike(tt.Tag.Name, tag)))
+            .OrderByDescending(t => t.CreatedDate)
+            .AsNoTracking()
+            .ToListAsync();
     }
 
     public async Task<IEnumerable<Template>> SearchPublicTemplatesAsync(string query)
     {
+        if (string.IsNullOrWhiteSpace(query))
+            return Enumerable.Empty<Template>();
+
         return await _context.Templates
-            .Include(t => t.Creator)
+            .Include(t => t.CreatedBy)
             .Include(t => t.TemplateTags)
                 .ThenInclude(tt => tt.Tag)
-            .Where(t => t.IsPublic && !t.IsDeleted)
-            .Where(t => EF.Functions.FreeText(t.Title, query) ||
-                       EF.Functions.FreeText(t.Description, query) ||
-                       t.TemplateTags.Any(tt => EF.Functions.FreeText(tt.Tag.Name, query)))
+            .Where(t => t.IsPublic && !t.IsDeleted &&
+                (
+                    EF.Functions.ILike(t.Title, $"%{query}%") ||
+                    (t.Description != null && EF.Functions.ILike(t.Description, $"%{query}%")) ||
+                    t.TemplateTags.Any(tt => EF.Functions.ILike(tt.Tag.Name, $"%{query}%"))
+                ))
+            .OrderByDescending(t => t.CreatedDate)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Template>> SearchAllTemplatesAsync(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Enumerable.Empty<Template>();
+
+        return await _context.Templates
+            .Include(t => t.CreatedBy)
+            .Include(t => t.TemplateTags)
+                .ThenInclude(tt => tt.Tag)
+            .Where(t => !t.IsDeleted &&
+                (
+                    EF.Functions.ILike(t.Title, $"%{query}%") ||
+                    (t.Description != null && EF.Functions.ILike(t.Description, $"%{query}%")) ||
+                    t.TemplateTags.Any(tt => EF.Functions.ILike(tt.Tag.Name, $"%{query}%"))
+                ))
             .OrderByDescending(t => t.CreatedDate)
             .AsNoTracking()
             .ToListAsync();
@@ -61,27 +97,57 @@ public class SqlFullTextSearchService : IFullTextSearchService
 
     public async Task<IEnumerable<Template>> SearchUserTemplatesAsync(string query, string userId)
     {
+        if (string.IsNullOrWhiteSpace(query))
+            return Enumerable.Empty<Template>();
+
         return await _context.Templates
-            .Include(t => t.Creator)
+            .Include(t => t.CreatedBy)
             .Include(t => t.TemplateTags)
                 .ThenInclude(tt => tt.Tag)
-            .Where(t => t.CreatorId.ToString() == userId && !t.IsDeleted)
-            .Where(t => EF.Functions.FreeText(t.Title, query) ||
-                       EF.Functions.FreeText(t.Description, query) ||
-                       t.TemplateTags.Any(tt => EF.Functions.FreeText(tt.Tag.Name, query)))
+            .Where(t => t.CreatedById == userId && !t.IsDeleted &&
+                (
+                    EF.Functions.ILike(t.Title, $"%{query}%") ||
+                    (t.Description != null && EF.Functions.ILike(t.Description, $"%{query}%")) ||
+                    t.TemplateTags.Any(tt => EF.Functions.ILike(tt.Tag.Name, $"%{query}%"))
+                ))
             .OrderByDescending(t => t.CreatedDate)
             .AsNoTracking()
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<Template>> SearchTemplatesByTagAsync(string tagName)
+    public async Task<IEnumerable<Template>> SearchLikedTemplatesAsync(string query, string userId)
     {
+        if (string.IsNullOrWhiteSpace(query))
+            return Enumerable.Empty<Template>();
+
+        return await _context.Likes
+            .Where(l => l.UserId == userId)
+            .Select(l => l.Template)
+            .Where(t => t != null && !t.IsDeleted &&
+                (
+                    EF.Functions.ILike(t.Title, $"%{query}%") ||
+                    (t.Description != null && EF.Functions.ILike(t.Description, $"%{query}%")) ||
+                    t.TemplateTags.Any(tt => EF.Functions.ILike(tt.Tag.Name, $"%{query}%"))
+                ))
+            .Include(t => t.CreatedBy)
+            .Include(t => t.TemplateTags)
+                .ThenInclude(tt => tt.Tag)
+            .OrderByDescending(t => t.CreatedDate)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Template>> SearchTemplatesByTopicAsync(string topicName)
+    {
+        if (string.IsNullOrWhiteSpace(topicName))
+            return Enumerable.Empty<Template>();
+
         return await _context.Templates
-            .Include(t => t.Creator)
+            .Include(t => t.CreatedBy)
             .Include(t => t.TemplateTags)
                 .ThenInclude(tt => tt.Tag)
             .Where(t => !t.IsDeleted && 
-                       t.TemplateTags.Any(tt => tt.Tag.Name.Contains(tagName)))
+                   (t.Topic != null && EF.Functions.ILike(t.Topic, $"%{topicName}%")))
             .OrderByDescending(t => t.CreatedDate)
             .AsNoTracking()
             .ToListAsync();

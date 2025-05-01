@@ -1,0 +1,99 @@
+@if (TotalPages > 1)
+{
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+
+            @* Previous Button *@
+            <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+                <button class="page-link" @onclick="() => GoToPage(CurrentPage - 1)" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </button>
+            </li>
+
+            @* Page Number Buttons *@
+            @foreach (var page in GetPageNumbers())
+            {
+                if (page == -1)
+                {
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                }
+                else
+                {
+                    <li class="page-item @(page == CurrentPage ? "active" : "")" aria-current="@(page == CurrentPage ? "page" : null)">
+                        <button class="page-link" @onclick='() => GoToPage(page)'></button>
+                    </li>
+                }
+            }
+
+            @* Next Button *@
+            <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
+                <button class="page-link" @onclick="() => GoToPage(CurrentPage + 1)" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </button>
+            </li>
+
+        </ul>
+    </nav>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public int CurrentPage { get; set; }
+
+    [Parameter, EditorRequired]
+    public int TotalPages { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnPageChanged { get; set; }
+
+    // Determines which page numbers to display (e.g., show first, last, current +/- range, and ellipses)
+    private List<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+        int pageRange = 2; // How many pages to show around the current page
+
+        // Always add the first page
+        pages.Add(1);
+
+        // Calculate start and end range around the current page
+        int startRange = Math.Max(2, CurrentPage - pageRange);
+        int endRange = Math.Min(TotalPages - 1, CurrentPage + pageRange);
+
+        // Add ellipsis if there's a gap after the first page
+        if (startRange > 2)
+        {
+            pages.Add(-1); // Use -1 to represent ellipsis
+        }
+
+        // Add pages within the calculated range
+        for (int i = startRange; i <= endRange; i++)
+        {
+            pages.Add(i);
+        }
+
+        // Add ellipsis if there's a gap before the last page
+        if (endRange < TotalPages - 1)
+        {
+            pages.Add(-1); // Ellipsis
+        }
+
+        // Always add the last page if TotalPages > 1
+        if (TotalPages > 1)
+        {
+            pages.Add(TotalPages);
+        }
+
+        return pages;
+    }
+
+    private async Task GoToPage(int pageNumber)
+    {
+        // Ensure page number is within valid bounds
+        pageNumber = Math.Clamp(pageNumber, 1, TotalPages);
+
+        if (pageNumber != CurrentPage)
+        {
+            await OnPageChanged.InvokeAsync(pageNumber);
+        }
+    }
+}

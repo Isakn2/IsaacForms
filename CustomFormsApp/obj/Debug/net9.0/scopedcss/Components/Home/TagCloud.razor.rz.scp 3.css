@@ -1,0 +1,20 @@
+/* Example for Components/Home/TagCloud.razor.css */
+.tag-item[b-edpgzecga2] {
+    /* Basic styling */
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9em;
+    text-decoration: none;
+}
+
+.tag-item:hover[b-edpgzecga2] {
+    background-color: var(--bs-info);
+    color: var(--bs-white);
+}
+
+/* Example for varying sizes (requires calculating frequency) */
+/*.tag-size-1 { font-size: 0.8em; }
+.tag-size-2 { font-size: 1.0em; }
+.tag-size-3 { font-size: 1.2em; font-weight: bold; }
+.tag-size-4 { font-size: 1.4em; font-weight: bold; }
+.tag-size-5 { font-size: 1.6em; font-weight: bold; }*/

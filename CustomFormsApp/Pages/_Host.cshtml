@@ -2,36 +2,77 @@
 @using Microsoft.AspNetCore.Components.Web
 @namespace CustomFormsApp.Pages
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@inject IConfiguration Configuration
+@using System.Globalization
+@{
+    Layout = null;
+    
+    var renderMode = 
+        HttpContext.Request.Path.StartsWithSegments("/Account") 
+        ? Microsoft.AspNetCore.Mvc.Rendering.RenderMode.Server 
+        : Microsoft.AspNetCore.Mvc.Rendering.RenderMode.ServerPrerendered;
+        
+    // Get the current culture from the request
+    var currentCulture = CultureInfo.CurrentCulture.Name;
+}
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@currentCulture">
 <head>
     <meta charset="utf-8" />
+    <link rel="icon" type="image/png" href="favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="~/" />
-    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
-    <link href="css/site.css" rel="stylesheet" />
-    <link href="CustomFormsApp.styles.css" rel="stylesheet" />
-    <link rel="icon" type="image/png" href="favicon.png"/>
-    
-    <!-- Apply initial theme from localStorage without JavaScript interop -->
+
+    <title>IsaacForms</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="~/lib/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+    <!-- Font Awesome (for icon fonts) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" 
+          integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" 
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- Component-specific styles -->
+    @if (System.IO.File.Exists(System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "wwwroot", "CustomFormsApp.styles.css")))
+    {
+        <link rel="stylesheet" href="CustomFormsApp.styles.css" />
+    }
+    <!-- Apply initial theme -->
     <script>
-        (function() {
+        // Just get/set from localStorage to prevent flash
+        (function () {
             try {
-                const savedTheme = localStorage.getItem('theme') || 
+                const savedTheme = localStorage.getItem('theme') ||
                     (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
                 document.documentElement.setAttribute('data-bs-theme', savedTheme);
-                document.documentElement.setAttribute('data-theme', savedTheme);
             } catch (e) {
                 console.error("Error in initial theme:", e);
             }
         })();
     </script>
+    <!-- Clerk script  -->
+    <script src="/_clerk-proxy/clerk.js" 
+            crossorigin="anonymous"
+            data-clerk-publishable-key="@Configuration["Clerk:PublishableKey"]">
+    </script>
+    
+    <!-- Clerk interop -->
+    <script src="~/js/clerkInterop.js"></script>
+    
+    <!-- Custom site styles - Moved AFTER Bootstrap to override Bootstrap styles -->
+    <link href="~/css/site.css?v=1.0" rel="stylesheet" />
     
     <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
 </head>
+
 <body>
-    <component type="typeof(App)" render-mode="ServerPrerendered" />
+    <app>
+        <!-- Using the calculated render mode -->
+        <component type="typeof(App)" render-mode="@renderMode" />
+    </app>
 
     <div id="blazor-error-ui">
         <environment include="Staging,Production">
@@ -44,7 +85,11 @@
         <a class="dismiss">🗙</a>
     </div>
 
+    <!-- Load Blazor first -->
     <script src="_framework/blazor.server.js"></script>
-    <script src="js/site.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/appInterop.js"></script>
+    <script src="~/js/localization.js"></script>
+    <script src="~/js/site.js"></script>
 </body>
 </html>

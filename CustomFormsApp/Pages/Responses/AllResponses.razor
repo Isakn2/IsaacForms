@@ -1,0 +1,283 @@
+@page "/form-responses"
+@attribute [Authorize]
+
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+
+@inject IFormResponseService FormResponseService
+@inject IFormService FormService
+@inject ITemplateService TemplateService
+@inject ICurrentUserService CurrentUserService
+@inject NavigationManager Navigation
+@inject ILogger<AllResponses> Logger
+
+<PageTitle>Form Responses</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="mb-4">Form Responses</h1>
+
+    @if (isLoading)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading responses...</span>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+        </div>
+    }
+    else
+    {
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link @(activeTab == "created" ? "active" : "")" href="javascript:void(0)" @onclick='() => SetActiveTab("created")'>
+                    Forms You Created
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(activeTab == "submitted" ? "active" : "")" href="javascript:void(0)" @onclick='() => SetActiveTab("submitted")'>
+                    Forms You Submitted
+                </a>
+            </li>
+        </ul>
+
+        @if (activeTab == "created")
+        {
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h3 class="card-title h5 mb-0">Responses to Forms You Created</h3>
+                </div>
+                <div class="card-body">
+                    @if (formsWithResponses == null || !formsWithResponses.Any())
+                    {
+                        <p class="text-muted">No responses have been submitted to your forms yet.</p>
+                    }
+                    else
+                    {
+                        @foreach (var formGroup in formsWithResponses)
+                        {
+                            <div class="mb-4">
+                                <h4>@GetFormTitle(formGroup.Key.Id) <span class="badge bg-secondary">@formGroup.Value.Count responses</span></h4>
+                                <p class="text-muted small">Form ID: @formGroup.Key.Id</p>
+
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-striped table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th scope="col">Submitted By</th>
+                                                <th scope="col">Submitted On</th>
+                                                <th scope="col">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var response in formGroup.Value)
+                                            {
+                                                <tr>
+                                                    <td>@(response.SubmittedBy?.Username ?? "Anonymous")</td>
+                                                    <td>@response.SubmissionDate.ToLocalTime().ToString("g")</td>
+                                                    <td>
+                                                        @if (formGroup.Key.TemplateId.HasValue)
+                                                        {
+                                                            <button class="btn btn-sm btn-outline-primary"
+                                                                    @onclick="() => ViewTemplateResponses(formGroup.Key.TemplateId.Value)">
+                                                                <i class="bi bi-eye"></i> View All Responses
+                                                            </button>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted small">No template associated</span>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+        else if (activeTab == "submitted")
+        {
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h3 class="card-title h5 mb-0">Forms You've Submitted</h3>
+                </div>
+                <div class="card-body">
+                    @if (userResponses == null || !userResponses.Any())
+                    {
+                        <p class="text-muted">You haven't submitted any form responses yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col">Form Title</th>
+                                        <th scope="col">Submitted On</th>
+                                        <th scope="col"># of Questions</th>
+                                        <th scope="col">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var response in userResponses)
+                                    {
+                                        <tr>
+                                            <td>@(GetFormTitle(response.FormId))</td>
+                                            <td>@response.SubmissionDate.ToLocalTime().ToString("g")</td>
+                                            <td>@(response.Answers?.Count ?? 0)</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        @onclick="() => ViewForm(response.FormId)">
+                                                    <i class="bi bi-eye"></i> View Form
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    } <!-- This closes the @else block -->
+</div> <!-- This closes the main container div -->
+
+
+@code {
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string activeTab = "created";
+    private string? currentUserId;
+
+    private List<FormResponse> userResponses = new();
+    private Dictionary<Form, List<FormResponse>> formsWithResponses = new();
+    private Dictionary<int, string> formTitles = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            currentUserId = CurrentUserService.GetUserId();
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                errorMessage = "User not authenticated";
+                isLoading = false;
+                return;
+            }
+
+            // Load data for both tabs at once
+            await Task.WhenAll(
+                LoadUserSubmittedResponses(),
+                LoadResponsesToUserForms()
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading response data");
+            errorMessage = "An error occurred while loading responses.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadUserSubmittedResponses()
+    {
+        if (string.IsNullOrEmpty(currentUserId))
+            return;
+
+        userResponses = (await FormResponseService.GetUserResponsesAsync(currentUserId)).ToList();
+
+        // Preload form titles
+        var formIds = userResponses.Select(r => r.FormId).Distinct().Where(id => !formTitles.ContainsKey(id));
+        await PreloadFormTitles(formIds);
+    }
+
+    private async Task LoadResponsesToUserForms()
+    {
+        if (string.IsNullOrEmpty(currentUserId))
+            return;
+
+        // Get all forms created by the user
+        var userForms = await FormService.GetFormsByUserAsync(currentUserId); // Assuming this method exists or will be added
+
+        formsWithResponses = new Dictionary<Form, List<FormResponse>>();
+        List<int> formIdsToPreload = new List<int>();
+
+        foreach (var form in userForms)
+        {
+            var responses = (await FormResponseService.GetResponsesForFormAsync(form.Id)).ToList();
+            if (responses.Any())
+            {
+                formsWithResponses[form] = responses;
+                if (!formTitles.ContainsKey(form.Id))
+                {
+                    formIdsToPreload.Add(form.Id);
+                }
+            }
+        }
+        // Preload titles for these forms if not already loaded
+        await PreloadFormTitles(formIdsToPreload);
+    }
+
+    private async Task PreloadFormTitles(IEnumerable<int> formIds)
+    {
+        foreach (var formId in formIds)
+        {
+            if (formTitles.ContainsKey(formId)) continue; // Skip if already loaded
+
+            var form = await FormService.GetFormAsync(formId);
+            if (form != null && form.TemplateId.HasValue)
+            {
+                var template = await TemplateService.GetTemplateAsync(form.TemplateId.Value);
+                formTitles[formId] = template?.Title ?? $"Form #{formId}";
+            }
+            else
+            {
+                formTitles[formId] = $"Form #{formId}";
+            }
+        }
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private string GetFormTitle(int formId)
+    {
+        return formTitles.ContainsKey(formId) ? formTitles[formId] : $"Form #{formId}";
+    }
+
+    private void ViewTemplateResponses(int templateId)
+    {
+        Navigation.NavigateTo($"/responses/view/template/{templateId}");
+    }
+
+    private void ViewForm(int formId)
+    {
+        Navigation.NavigateTo($"/forms/view/{formId}");
+    }
+}

@@ -1,0 +1,261 @@
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using System.Timers
+@using CustomFormsApp.Components.Shared
+
+@implements IDisposable 
+@inject IAdminService AdminService
+@inject NavigationManager Navigation
+@inject ILogger<AllResponsesList> Logger
+@inject IJSRuntime JSRuntime
+
+<div class="all-responses-list-component">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h3 class="mb-0 me-3">All System Responses</h3>
+
+        @* --- Search Input (Submitter) --- *@
+        <div class="input-group input-group-sm flex-grow-1" style="max-width: 300px;">
+            <span class="input-group-text" id="response-search-addon"><i class="bi bi-search"></i></span>
+            <input type="search" class="form-control form-control-sm" placeholder="Search submitter..."
+                   aria-label="Search Responses by Submitter" aria-describedby="response-search-addon"
+                   @bind="searchTerm" @bind:event="oninput" />
+        </div>
+        @* Add other filters here if needed in the future *@
+    </div>
+
+    @if (isLoading)
+    {
+        @* ... loading indicator ... *@
+        <div class="text-center my-4">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <p class="mt-2 text-muted">Loading responses...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        @* ... error message ... *@
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+        </div>
+    }
+    else if (responses == null || !responses.Any())
+    {
+        @* ... no responses message ... *@
+        <div class="alert alert-info" role="alert">
+            No responses found in the system.
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(actionMessage))
+        {
+            @* ... action message ... *@
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                @actionMessage
+                <button type="button" class="btn-close" @onclick="() => actionMessage = null" aria-label="Close"></button>
+            </div>
+        }
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm">
+                @* ... table header ... *@
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Resp. ID</th>
+                        <th scope="col">Template</th>
+                        <th scope="col">Submitted By</th>
+                        <th scope="col">Submitted On</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var response in responses)
+                    {
+                        @* ... table row content ... *@
+                        var templateTitle = response.Form?.Template?.Title ?? "N/A";
+                        var templateId = response.Form?.TemplateId;
+                        var isTemplateDeleted = response.Form?.Template?.IsDeleted ?? false;
+
+                        <tr class="@(isTemplateDeleted ? "table-secondary text-muted fst-italic" : "")">
+                            <td>@response.Id</td>
+                            <td>
+                                @if(templateId.HasValue && !isTemplateDeleted)
+                                {
+                                    <a href="@($"/templates/view/{templateId.Value}")" title="View Template">@templateTitle</a>
+                                }
+                                else if(templateId.HasValue && isTemplateDeleted)
+                                { 
+                                    <span class="text-muted">@templateTitle</span>
+                                    <span class="badge bg-danger ms-1">Deleted Template</span>
+                                }
+                                else 
+                                { 
+                                    <span class="text-muted">@templateTitle</span> 
+                                }
+                            </td>
+                            <td>@(response.SubmittedBy?.Username ?? response.SubmittedBy?.Email ?? response.SubmittedById)</td>
+                            <td>@response.SubmissionDate.ToLocalTime().ToString("g")</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-info"
+                                        @onclick="() => ViewResponseDetails(response.Id)"
+                                        title="View Response Details">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger ms-1"
+                                        @onclick="() => ConfirmDeleteResponse(response.Id)"
+                                        title="Delete Response">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @* ... Pagination Controls ... *@
+        <div class="d-flex justify-content-center mt-3">
+            <Pagination CurrentPage="currentPage"
+                        TotalPages="totalPages"
+                        OnPageChanged="HandlePageChanged" />
+        </div>
+        <p class="text-muted small text-center mt-2">Showing page @currentPage of @totalPages (@totalResponseCount total responses)</p>
+    }
+</div>
+
+@code {
+private IEnumerable<FormResponse>? responses;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string? actionMessage;
+
+    // --- Pagination State ---
+    private int currentPage = 1;
+    private int pageSize = 15;
+    private int totalResponseCount = 0;
+    private int totalPages => (int)Math.Ceiling((double)totalResponseCount / pageSize);
+
+    // --- Search State ---
+    private string _searchTerm = string.Empty;
+    private System.Timers.Timer? _debounceTimer;
+
+    private string searchTerm
+    {
+        get => _searchTerm;
+        set
+        {
+            if (_searchTerm != value)
+            {
+                _searchTerm = value;
+                _debounceTimer?.Stop();
+                _debounceTimer?.Start();
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _debounceTimer = new System.Timers.Timer(500); // 500ms debounce
+        _debounceTimer.Elapsed += async (sender, e) => await HandleSearchDebounced();
+        _debounceTimer.AutoReset = false;
+
+        await LoadResponses();
+    }
+
+    // --- Debounced Search Handler ---
+    private async Task HandleSearchDebounced()
+    {
+        currentPage = 1; // Reset to first page on new search
+        await InvokeAsync(async () => {
+            await LoadResponses();
+            StateHasChanged();
+        });
+    }
+
+    // --- Update LoadResponses for Pagination and Search ---
+    private async Task LoadResponses()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Call the updated service method with pagination AND search parameters
+            var result = await AdminService.GetAllResponsesAsync(currentPage, pageSize, searchTerm);
+            responses = result.Responses;
+            totalResponseCount = result.TotalCount;
+
+            Logger.LogInformation("Loaded page {Page} responses (Count: {Count}, Total: {Total}, Search: '{Search}').",
+                currentPage, responses?.Count() ?? 0, totalResponseCount, searchTerm);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading responses (Page: {Page}, Size: {Size}, Search: '{Search}').",
+                currentPage, pageSize, searchTerm);
+            errorMessage = "Failed to load responses. Please check the logs.";
+            responses = null;
+            totalResponseCount = 0;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // --- Handle Page Change Event ---
+    private async Task HandlePageChanged(int newPage)
+    {
+        if (newPage >= 1 && newPage <= totalPages && newPage != currentPage)
+        {
+            currentPage = newPage;
+            await LoadResponses(); // Reload data for the new page (maintains current search term)
+        }
+    }
+
+    // --- Admin Actions ---
+    private async Task ConfirmDeleteResponse(int responseId)
+    {
+        // ... existing ConfirmDeleteResponse code ...
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to PERMANENTLY DELETE response ID {responseId}? This action cannot be undone.");
+        if (confirmed)
+        {
+            await DeleteResponseAsAdmin(responseId);
+        }
+    }
+    private async Task DeleteResponseAsAdmin(int responseId)
+    {
+        // ... existing DeleteResponseAsAdmin code ...
+        actionMessage = null;
+        isLoading = true;
+        StateHasChanged();
+
+        var success = await AdminService.DeleteResponseAsAdminAsync(responseId);
+
+        if (success)
+        {
+            Logger.LogInformation("Admin successfully deleted response {ResponseId}", responseId);
+            actionMessage = $"Response {responseId} deleted successfully.";
+            // Reload the current page after deletion
+            await LoadResponses();
+        }
+        else
+        {
+            Logger.LogError("Admin failed to delete response {ResponseId}", responseId);
+            errorMessage = $"Failed to delete response {responseId}. Check logs for details.";
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    // --- Navigation Method ---
+    private void ViewResponseDetails(int responseId)
+    {
+        Navigation.NavigateTo($"/admin/responses/{responseId}");
+    }
+    // --- Dispose Timer ---
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+}

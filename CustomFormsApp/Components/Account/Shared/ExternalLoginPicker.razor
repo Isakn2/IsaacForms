@@ -1,7 +1,4 @@
-@using Microsoft.AspNetCore.Identity
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Authentication
-@using CustomFormsApp.Data
+@using CustomFormsApp.Services
 @using Microsoft.AspNetCore.Components
 @using Microsoft.Extensions.Logging
 
@@ -9,9 +6,9 @@
     @foreach (var provider in externalProviders)
     {
         <button class="btn btn-outline-secondary w-100 mb-2"
-                @onclick="() => ExternalLogin(provider.Name)"
+                @onclick="() => ExternalLogin(provider.Key)"
                 disabled="@(isProcessing)">
-            @if (isProcessing && currentProvider == provider.Name)
+            @if (isProcessing && currentProvider == provider.Key)
             {
                 <span class="spinner-border spinner-border-sm" role="status"></span>
             }
@@ -19,32 +16,27 @@
             {
                 <i class="bi bi-box-arrow-in-right"></i>
             }
-            Log in with @provider.DisplayName
+            Log in with @provider.Value
         </button>
     }
 </div>
 
 @code {
-    [Inject] private SignInManager<ApplicationUser> SignInManager { get; set; } = null!;
+    [Inject] private ClerkAuthService ClerkAuth { get; set; } = null!;
     [Inject] private NavigationManager NavigationManager { get; set; } = null!;
     [Inject] private ILogger<ExternalLoginPicker> Logger { get; set; } = null!;
-    [Inject] private IHttpContextAccessor HttpContextAccessor { get; set; } = null!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
 
-    private IEnumerable<AuthenticationScheme> externalProviders = Array.Empty<AuthenticationScheme>();
+    // Define the external providers you want to support with Clerk
+    private Dictionary<string, string> externalProviders = new()
+    {
+        { "google", "Google" },
+        { "github", "GitHub" },
+        // Add other providers as needed
+    };
+
     private bool isProcessing;
     private string? currentProvider;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            externalProviders = await SignInManager.GetExternalAuthenticationSchemesAsync();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to get external authentication schemes");
-        }
-    }
 
     private async Task ExternalLogin(string provider)
     {
@@ -53,10 +45,8 @@
         
         try
         {
-            var redirectUrl = NavigationManager.ToAbsoluteUri("/Account/ExternalLoginCallback");
-            await HttpContextAccessor.HttpContext!.ChallengeAsync(
-                provider,
-                new AuthenticationProperties { RedirectUri = redirectUrl.ToString() });
+            // Call Clerk's authentication for the specified provider
+            await JSRuntime.InvokeVoidAsync("clerkInterop.authenticateWithProvider", provider);
         }
         catch (Exception ex)
         {

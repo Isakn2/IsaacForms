@@ -1,0 +1,116 @@
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@inject ICommentService CommentService
+@inject ILogger<CommentList> Logger
+
+@if (TemplateId > 0)
+{
+    <div class="comment-list-section mt-4">
+        <h4 class="mb-3">Comments (@(comments?.Count ?? 0))</h4>
+
+        @if (isLoading)
+        {
+            <div class="text-center my-3">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading comments...</span>
+                </div>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-warning" role="alert">
+                <i class="bi bi-exclamation-triangle me-2"></i> @errorMessage
+            </div>
+        }
+        else if (comments == null || !comments.Any())
+        {
+            <p class="text-muted">Be the first to comment!</p>
+        }
+        else
+        {
+            <div class="list-group">
+                @foreach (var comment in comments)
+                {
+                    <div class="list-group-item list-group-item-action flex-column align-items-start mb-2 border rounded">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">
+                                @if (!string.IsNullOrEmpty(comment.User?.ImageUrl))
+                                {
+                                    <img src="@comment.User.ImageUrl" alt="@(comment.User?.Username ?? "User")" class="rounded-circle me-2" width="24" height="24" />
+                                }
+                                else
+                                {
+                                    <i class="bi bi-person-circle me-2"></i>
+                                }
+                                @(comment.User?.Username ?? "Anonymous")
+                            </h6>
+                            <small class="text-muted" title="@comment.CreatedDate.ToString()">@TimeAgo(comment.CreatedDate)</small>
+                        </div>
+                        <p class="mb-1">@comment.Text</p>
+                        @* Optional: Add Reply/Delete buttons later *@
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public int TemplateId { get; set; }
+
+    private List<Comment>? comments;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Reload comments if TemplateId changes
+        if (TemplateId > 0)
+        {
+            await LoadComments();
+        }
+        else
+        {
+            comments = null;
+            isLoading = false;
+            errorMessage = "Invalid Template ID.";
+        }
+    }
+
+    public async Task LoadComments() // Make public to allow parent refresh
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged(); // Show loading state immediately
+
+        try
+        {
+            comments = await CommentService.GetCommentsForTemplateAsync(TemplateId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading comments for TemplateId {TemplateId}", TemplateId);
+            errorMessage = "Could not load comments.";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged(); // Update UI with comments or error
+        }
+    }
+
+    // Helper function for relative time
+    private string TimeAgo(DateTime dateTime)
+    {
+        var timeSpan = DateTime.UtcNow - dateTime;
+
+        if (timeSpan.TotalSeconds < 60) return $"{(int)timeSpan.TotalSeconds}s ago";
+        if (timeSpan.TotalMinutes < 60) return $"{(int)timeSpan.TotalMinutes}m ago";
+        if (timeSpan.TotalHours < 24) return $"{(int)timeSpan.TotalHours}h ago";
+        if (timeSpan.TotalDays < 7) return $"{(int)timeSpan.TotalDays}d ago";
+        if (timeSpan.TotalDays < 30) return $"{(int)(timeSpan.TotalDays / 7)}w ago";
+        if (timeSpan.TotalDays < 365) return $"{(int)(timeSpan.TotalDays / 30)}mo ago";
+        return $"{(int)(timeSpan.TotalDays / 365)}y ago";
+    }
+}

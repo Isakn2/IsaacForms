@@ -1,0 +1,334 @@
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using System.Timers 
+@implements IDisposable 
+@using CustomFormsApp.Components.Shared
+
+@inject IAdminService AdminService
+@inject NavigationManager Navigation
+@inject ILogger<AllTemplatesList> Logger
+@inject IJSRuntime JSRuntime
+
+<div class="all-templates-list-component">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h3 class="mb-0 me-3">All System Templates</h3>
+
+        @* --- Search Input --- *@
+        <div class="input-group input-group-sm flex-grow-1" style="max-width: 300px;">
+            <span class="input-group-text" id="template-search-addon"><i class="bi bi-search"></i></span>
+            <input type="search" class="form-control form-control-sm" placeholder="Search title/description..."
+                   aria-label="Search Templates" aria-describedby="template-search-addon"
+                   @bind="searchTerm" @bind:event="oninput" />
+        </div>
+
+        <div class="form-check form-switch ms-md-auto"> @* Push switch to the right on medium+ screens *@
+            <input class="form-check-input" type="checkbox" role="switch" id="showDeletedSwitch" @bind="showDeleted" @bind:event="oninput">
+            <label class="form-check-label" for="showDeletedSwitch">Show Deleted</label>
+        </div>
+    </div>
+
+    @* Optional: Display action message *@
+    @if (!string.IsNullOrEmpty(actionMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @actionMessage
+            <button type="button" class="btn-close" @onclick="() => actionMessage = null" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center my-4">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <p class="mt-2 text-muted">Loading templates...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+        </div>
+    }
+    else if (templates == null || !templates.Any())
+    {
+        <div class="alert alert-info" role="alert">
+            No templates found matching the criteria.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-sm">
+                @* ... table header ... *@
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Title</th>
+                        <th scope="col">Creator</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Created</th>
+                        <th scope="col">Modified</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var template in templates)
+                    {
+                        @* ... table row content ... *@
+                        <tr class="@(template.IsDeleted ? "table-secondary text-muted" : "")">
+                            <td>@template.Id</td>
+                            <td>@template.Title</td>
+                            <td>@(template.CreatedBy?.Username ?? template.CreatedById)</td>
+                            <td>
+                                @if(template.IsDeleted) { <span class="badge bg-danger">Deleted</span> }
+                                else if (template.IsPublic) { <span class="badge bg-success">Public</span> }
+                                else { <span class="badge bg-warning text-dark">Private</span> }
+                            </td>
+                            <td>@template.CreatedDate.ToString("yyyy-MM-dd")</td>
+                            <td>@(template.LastModifiedDate?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-info" @onclick="() => ViewTemplate(template.Id)" title="View Details">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                @if (template.IsDeleted)
+                                {
+                                    <button class="btn btn-sm btn-outline-success ms-1"
+                                            @onclick="() => ConfirmRestoreTemplate(template.Id, template.Title)"
+                                            title="Restore Template">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-danger ms-1"
+                                            @onclick="() => ConfirmDeleteTemplate(template.Id, template.Title)"
+                                            title="Delete Template">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @* --- Add Pagination Controls --- *@
+        <div class="d-flex justify-content-center mt-3">
+            <Pagination CurrentPage="currentPage"
+                        TotalPages="totalPages"
+                        OnPageChanged="HandlePageChanged" />
+        </div>
+        <p class="text-muted small text-center mt-2">Showing page @currentPage of @totalPages (@totalTemplateCount total templates)</p>
+    }
+</div>
+
+@code {
+    private IEnumerable<Template>? templates;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string? actionMessage;
+
+    // --- Pagination State ---
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalTemplateCount = 0;
+    private int totalPages => (int)Math.Ceiling((double)totalTemplateCount / pageSize);
+
+    // --- Filter/Search State ---
+    private bool _showDeleted = false;
+    private string _searchTerm = string.Empty;
+    private System.Timers.Timer? _debounceTimer; // Timer for debouncing search input
+
+    private bool showDeleted
+    {
+        get => _showDeleted;
+        set
+        {
+            if (_showDeleted != value)
+            {
+                _showDeleted = value;
+                currentPage = 1;
+                _ = LoadTemplates();
+            }
+        }
+    }
+
+    private string searchTerm
+    {
+        get => _searchTerm;
+        set
+        {
+            if (_searchTerm != value)
+            {
+                _searchTerm = value;
+                // Debounce the search call
+                _debounceTimer?.Stop(); // Stop previous timer if running
+                _debounceTimer?.Start(); // Restart timer
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize debounce timer (e.g., 500ms delay)
+        _debounceTimer = new System.Timers.Timer(500);
+        _debounceTimer.Elapsed += async (sender, e) => await HandleSearchDebounced();
+        _debounceTimer.AutoReset = false; // Only fire once per interval
+
+        await LoadTemplates();
+    }
+
+    // --- Debounced Search Handler ---
+    private async Task HandleSearchDebounced()
+    {
+        // This runs after the timer elapses
+        currentPage = 1; // Reset to first page for new search
+        await InvokeAsync(async () => {
+             await LoadTemplates(); // Load data with the new search term
+             StateHasChanged(); // Ensure UI updates if needed
+        });
+    }
+
+    // --- Update LoadTemplates for Pagination and Search ---
+    private async Task LoadTemplates()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged(); // Update UI to show loading
+
+        try
+        {
+            // Call the service method with the includeDeleted parameter set to true
+            // to ensure we get all templates (including deleted ones) for admin view
+            var result = await AdminService.GetAllTemplatesAsync(currentPage, pageSize, true, searchTerm);
+            
+            // If not showing deleted, filter them out here in memory
+            if (!showDeleted && result.Templates.Any())
+            {
+                templates = result.Templates.Where(t => !t.IsDeleted).ToList();
+                // Note: this approach means pagination might not be accurate when filtering
+                // deleted templates client-side, but it's a simple solution for now
+            }
+            else
+            {
+                templates = result.Templates;
+            }
+            
+            totalTemplateCount = result.TotalCount;
+            
+            if (!showDeleted)
+            {
+                // Adjust count if we're not showing deleted templates
+                totalTemplateCount = templates?.Count() ?? 0;
+            }
+
+            // Log what we got
+            Logger.LogInformation("Loaded page {Page} templates (Count: {Count}, Total: {Total}, Deleted: {Del}, Search: '{Search}').",
+                currentPage, templates?.Count() ?? 0, totalTemplateCount, showDeleted, searchTerm);
+                
+            // Add diagnostics to help with troubleshooting
+            var diagnostics = await AdminService.GetDatabaseDiagnosticsAsync();
+            Logger.LogInformation("Database diagnostics: {Diagnostics}", diagnostics);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading templates (Page: {Page}, Size: {Size}, Deleted: {Del}, Search: '{Search}').",
+                currentPage, pageSize, showDeleted, searchTerm);
+            errorMessage = "Failed to load templates. Please check the logs.";
+            templates = null;
+            totalTemplateCount = 0;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged(); // Update UI after loading finishes
+        }
+    }
+
+    // --- Handle Page Change Event ---
+    private async Task HandlePageChanged(int newPage)
+    {
+        if (newPage >= 1 && newPage <= totalPages && newPage != currentPage)
+        {
+            currentPage = newPage;
+            await LoadTemplates(); // Reload data for the new page (maintains current search term)
+        }
+    }
+
+    private void ViewTemplate(int templateId)
+    {
+        Navigation.NavigateTo($"/templates/view/{templateId}");
+    }
+
+    private async Task ConfirmDeleteTemplate(int templateId, string templateTitle)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to SOFT DELETE the template '{templateTitle}' (ID: {templateId})? Users will no longer see it.");
+        if (confirmed)
+        {
+            await DeleteTemplateAsAdmin(templateId);
+        }
+    }
+
+    private async Task DeleteTemplateAsAdmin(int templateId)
+    {
+        actionMessage = null; 
+        isLoading = true; 
+        StateHasChanged();
+
+        var success = await AdminService.DeleteTemplateAsAdminAsync(templateId);
+
+        if (success)
+        {
+            Logger.LogInformation("Admin successfully deleted template {TemplateId}", templateId);
+            actionMessage = $"Template {templateId} deleted successfully.";
+            await LoadTemplates(); // Reload the list to reflect changes
+        }
+        else
+        {
+            Logger.LogError("Admin failed to delete template {TemplateId}", templateId);
+            errorMessage = $"Failed to delete template {templateId}. Check logs for details.";
+            isLoading = false; // Stop loading indicator on failure
+            StateHasChanged();
+        }
+        // isLoading will be set to false by LoadTemplates on success
+    }
+
+    private async Task ConfirmRestoreTemplate(int templateId, string templateTitle)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to RESTORE the template '{templateTitle}' (ID: {templateId})?");
+        if (confirmed)
+        {
+            await RestoreTemplateAsAdmin(templateId);
+        }
+    }
+
+    private async Task RestoreTemplateAsAdmin(int templateId)
+    {
+        actionMessage = null; 
+        isLoading = true;
+        StateHasChanged();
+
+        var success = await AdminService.RestoreTemplateAsync(templateId);
+
+        if (success)
+        {
+            Logger.LogInformation("Admin successfully restored template {TemplateId}", templateId);
+            actionMessage = $"Template {templateId} restored successfully.";
+            await LoadTemplates(); // Reload the list to reflect changes
+        }
+        else
+        {
+            Logger.LogError("Admin failed to restore template {TemplateId}", templateId);
+            errorMessage = $"Failed to restore template {templateId}. Check logs for details.";
+            isLoading = false; // Stop loading indicator on failure
+            StateHasChanged();
+        }
+        // isLoading will be set to false by LoadTemplates on success
+    }
+    // --- Dispose Timer ---
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+}

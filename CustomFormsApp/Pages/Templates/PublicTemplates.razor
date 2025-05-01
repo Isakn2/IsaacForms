@@ -1,0 +1,118 @@
+@page "/templates/public"
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using Microsoft.Extensions.Localization
+@inject ITemplateService TemplateService
+@inject NavigationManager Navigation
+@inject IStringLocalizer<PublicTemplates> Localizer
+@inject ILogger<PublicTemplates> Logger
+
+<PageTitle>Public Templates - Custom Forms</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>@Localizer["PublicTemplates"]</h1>
+        <div>
+            <a href="/" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-house-door"></i> Home
+            </a>
+            <a href="/form-builder?mode=template" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create Template
+            </a>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4">
+            @for (int i = 0; i < 6; i++)
+            {
+                <div class="col">
+                    <div class="card h-100 placeholder-glow">
+                        <div class="card-body">
+                            <h5 class="card-title placeholder col-6"></h5>
+                            <p class="card-text placeholder col-8"></p>
+                            <p class="card-text placeholder col-7"></p>
+                        </div>
+                        <div class="card-footer">
+                            <small class="placeholder col-4"></small>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (templates == null || !templates.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i> @Localizer["NoPublicTemplatesFound"]
+        </div>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4">
+            @foreach (var template in templates)
+            {
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">@template.Title</h5>
+                            @if (!string.IsNullOrWhiteSpace(template.Description))
+                            {
+                                <p class="card-text">@template.Description</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(template.Topic))
+                            {
+                                <span class="badge bg-secondary">@template.Topic</span>
+                            }
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                By @(template.CreatedBy?.FirstName ?? "Unknown") 
+                                @(template.CreatedBy?.LastName ?? "")
+                            </small>
+                            <div>
+                                <a href="/templates/@template.Id" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i> View
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Template>? templates;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            // Get all public templates regardless of creator
+            var allPublicTemplates = await TemplateService.GetLatestPublicTemplatesAsync(100);
+            templates = allPublicTemplates.ToList();
+            
+            Logger.LogInformation("Loaded {Count} public templates", templates.Count);
+
+            // Log details of each template for debugging
+            foreach (var template in templates)
+            {
+                Logger.LogInformation("Public Template: Id={Id}, Title='{Title}', Creator='{Creator}'", 
+                    template.Id, template.Title, template.CreatedBy?.FirstName);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading public templates");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

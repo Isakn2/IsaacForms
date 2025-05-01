@@ -1,0 +1,268 @@
+@page "/responses/view/template/{TemplateId:int}"
+@attribute [Authorize]
+
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using Microsoft.AspNetCore.Authorization
+
+@inject IFormResponseService FormResponseService
+@inject IFormService FormService
+@inject ITemplateService TemplateService
+@inject IAuthorizationService AuthorizationService
+@inject NavigationManager Navigation
+@inject ILogger<ViewResponses> Logger
+
+<PageTitle>View Responses: @(template?.Title ?? "Loading...")</PageTitle> 
+
+<div class="container mt-4">
+
+    @if (isLoading)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading responses...</span>
+            </div>
+        </div>
+    }
+    else if (!isAuthorized)
+    {
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-shield-lock-fill me-2"></i> You are not authorized to view responses for this template.
+        </div>
+        <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/profile")'>
+             <i class="bi bi-arrow-left"></i> Back to Profile
+        </button>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+        </div>
+         <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/profile")'>
+             <i class="bi bi-arrow-left"></i> Back to Profile
+        </button>
+    }
+    else if (template == null) @* Check template first *@
+    {
+         <div class="alert alert-warning" role="alert">
+            Template not found.
+        </div>
+         <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/profile")'>
+             <i class="bi bi-arrow-left"></i> Back to Profile
+        </button>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center mb-4">
+             <h1 class="mb-0">Responses for "@template.Title"</h1> 
+             <button class="btn btn-outline-secondary" @onclick="GoBack">
+                 <i class="bi bi-arrow-left"></i> Back
+             </button>
+        </div>
+
+        @if (responses == null || !responses.Any())
+        {
+            <div class="alert alert-info" role="alert">
+                No responses have been submitted for this template yet.
+            </div>
+        }
+        else
+        {
+            <p class="text-muted">Total Responses: @responses.Count</p>
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Submitted By</th>
+                            <th scope="col">Submitted On</th>
+                            @foreach (var question in questionsInOrder)
+                            {
+                                <th scope="col" title="@question.Text">Q@(question.Order): @Truncate(question.Text, 30)</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var response in responses)
+                        {
+                            <tr>
+                                <td>@(response.SubmittedBy?.Username ?? response.SubmittedById)</td>
+                                <td>@response.SubmissionDate.ToLocalTime().ToString("g")</td>
+                                @foreach (var question in questionsInOrder)
+                                {
+                                    <td>@GetAnswerForQuestion(response, question.Id)</td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int TemplateId { get; set; } // Changed parameter name
+
+    private Template? template; // Store the template
+    private Form? form; // Still need the form eventually
+    private List<FormResponse>? responses;
+    private List<Question> questionsInOrder = new List<Question>();
+    private bool isLoading = true;
+    private bool isAuthorized = false;
+    private string? errorMessage;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        template = null;
+        form = null;
+        responses = null;
+        isAuthorized = false;
+
+        if (TemplateId <= 0) // Check TemplateId
+        {
+            errorMessage = "Invalid Template ID.";
+            isLoading = false;
+            return;
+        }
+
+        var user = (await AuthenticationStateTask!)?.User;
+        var currentUserId = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value; // Get user ID
+
+        if (user == null || !user.Identity!.IsAuthenticated || string.IsNullOrEmpty(currentUserId))
+        {
+            errorMessage = "Authentication failed.";
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            // 1. Get Template details (including questions for table header)
+            template = await TemplateService.GetTemplateAsync(TemplateId); // Use TemplateService
+
+            if (template == null)
+            {
+                errorMessage = "Template not found.";
+                isLoading = false;
+                return;
+            }
+
+            // 2. Check Authorization (using TemplateOwnerPolicy on the Template)
+            var authorizationResult = await AuthorizationService.AuthorizeAsync(user, template, "TemplateOwnerPolicy");
+            isAuthorized = authorizationResult.Succeeded;
+
+            if (!isAuthorized)
+            {
+                Logger.LogWarning("User {UserId} is not authorized to view responses for Template {TemplateId}", currentUserId, TemplateId);
+                isLoading = false;
+                return; // Stop loading if not authorized
+            }
+
+            // 3. Get or Create the associated Form
+            // It's okay to potentially create the Form record here if it doesn't exist yet
+            form = await FormService.GetOrCreateFormForTemplateAsync(TemplateId, template.CreatedById); // Use template owner ID for creation if needed
+
+            // 4. Get Questions (already loaded with template)
+            if (template.Questions != null)
+            {
+                 questionsInOrder = template.Questions.OrderBy(q => q.Order).ToList();
+            }
+
+            // 5. Get Responses for the Form if authorized and form exists
+            if (form != null)
+            {
+                 var responseData = await FormResponseService.GetResponsesForFormAsync(form.Id);
+                 responses = responseData.ToList();
+            }
+            else
+            {
+                // Should not happen if GetOrCreateFormForTemplateAsync works correctly, but handle defensively
+                Logger.LogWarning("Could not find or create a Form associated with Template {TemplateId}", TemplateId);
+                responses = new List<FormResponse>(); // Show empty list
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading responses or checking authorization for Template {TemplateId}", TemplateId);
+            errorMessage = "An error occurred while loading responses.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // Helper to get Template with Questions if not already loaded
+    private async Task<Template?> GetTemplateWithQuestionsAsync(int? templateId)
+    {
+        if (templateId.HasValue && TemplateService != null)
+        {
+            return await TemplateService.GetTemplateAsync(templateId.Value);
+        }
+        return null;
+    }
+
+
+    // Helper to get the answer value for a specific question from a response
+    private string GetAnswerForQuestion(FormResponse response, int questionId)
+    {
+        if (response.Answers == null)
+        {
+            Logger.LogWarning("Response {ResponseId} has null Answers collection", response.Id);
+            return "-";
+        }
+        
+        var answer = response.Answers.FirstOrDefault(a => a.QuestionId == questionId);
+        
+        if (answer == null)
+        {
+            Logger.LogWarning("No answer found for Question ID {QuestionId} in Response {ResponseId}", questionId, response.Id);
+            return "-";
+        }
+        
+        // Properly handle different answer types
+        if (string.IsNullOrEmpty(answer.Value))
+        {
+            Logger.LogWarning("Empty answer value for Question ID {QuestionId} in Response {ResponseId}", questionId, response.Id);
+            return "-";
+        }
+
+        // Try to determine if it's a JSON array (for checkboxes, etc.)
+        if (answer.Value.StartsWith("[") && answer.Value.EndsWith("]"))
+        {
+            try
+            {
+                var options = System.Text.Json.JsonSerializer.Deserialize<List<string>>(answer.Value);
+                return options != null && options.Any() ? string.Join(", ", options) : "-";
+            }
+            catch (Exception ex)
+            {
+                // Log and return the original value if JSON parsing fails
+                Logger.LogWarning(ex, "Failed to parse JSON answer for Question ID {QuestionId}", questionId);
+                return answer.Value;
+            }
+        }
+        
+        return answer.Value;
+    }
+
+    // Helper to truncate text
+    private string Truncate(string? text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        return text.Length <= maxLength ? text : text.Substring(0, maxLength) + "...";
+    }
+
+    private void GoBack()
+    {
+        // Navigate back to profile or template list, depending on context
+        Navigation.NavigateTo("/profile"); // Or use JS interop for history.back()
+    }
+}

@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: customforms-app
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DEFAULT_CONNECTION
+        fromDatabase:
+          name: customforms-db
+          property: connectionString
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_JWT_KEY
+        sync: false
+      - key: CLERK_API_URL
+        sync: false
+      - key: CLERK_APPLICATION_ID
+        sync: false
+      - key: CLERK_INSTANCE_ID
+        sync: false
+      - key: DOTNET_SYSTEM_GLOBALIZATION_INVARIANT
+        value: "false"
+      - key: LC_ALL
+        value: "en_US.UTF-8"
+      - key: LANG
+        value: "en_US.UTF-8"
+    healthCheckPath: /
+    # We're using our Dockerfile which includes the start script
+    # So we don't need these commands
+    # buildCommand: dotnet publish -c Release
+    # startCommand: dotnet CustomFormsApp.dll
+
+databases:
+  - name: customforms-db
+    databaseName: customforms
+    user: customforms
+    plan: starter

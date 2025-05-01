@@ -1,0 +1,117 @@
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using CustomFormsApp.Components.Template
+@using Microsoft.Extensions.Localization
+@inject ITemplateService TemplateService
+@inject NavigationManager Navigation
+@inject ILogger<LatestTemplates> Logger
+@inject IStringLocalizer<LatestTemplates> Localizer
+
+<div class="latest-templates-section mb-5">
+    <h2 class="mb-3">@Localizer["FeaturedTemplates"]</h2>
+
+    @if (isLoading)
+    {
+        @* Show placeholders or a single spinner *@
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @for (int i = 0; i < Count; i++)
+            {
+                <div class="col">
+                    <TemplateCard TemplateItem="null" /> @* Pass null to show placeholder *@
+                </div>
+            }
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning" role="alert">
+             <i class="bi bi-exclamation-triangle me-2"></i> @Localizer["CouldNotLoadTemplates"] @errorMessage
+        </div>
+    }
+    else if (latestTemplates == null || !latestTemplates.Any())
+    {
+        <p class="text-muted">@Localizer["NoTemplatesAvailable"]</p>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var template in latestTemplates)
+            {
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">@template.Title</h5>
+                            @if (!string.IsNullOrWhiteSpace(template.Description))
+                            {
+                                <p class="card-text">@template.Description</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(template.Topic))
+                            {
+                                <span class="badge bg-secondary">@template.Topic</span>
+                            }
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                By @(template.CreatedBy?.FirstName ?? "Unknown") 
+                                @(template.CreatedBy?.LastName ?? "")
+                            </small>
+                            <div class="d-flex gap-2">
+                                <a href="/templates/view/@template.Id" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i> View
+                                </a>
+                                <button @onclick="() => UseTemplate(template.Id)" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-plus-square"></i> Use
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Count { get; set; } = 6; // Default number of templates to show
+
+    private List<Template>? latestTemplates;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            var templates = await TemplateService.GetLatestPublicTemplatesAsync(Count);
+            latestTemplates = templates.ToList();
+            
+            Logger.LogInformation("Loaded {Count} featured templates", latestTemplates.Count);
+            
+            // Log details of each template for debugging
+            foreach (var template in latestTemplates)
+            {
+                Logger.LogInformation("Featured Template: Id={Id}, Title='{Title}', Creator='{Creator}'", 
+                    template.Id, template.Title, template.CreatedBy?.FirstName);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading latest public templates component.");
+            errorMessage = "An unexpected error occurred."; // Keep error message generic for public view
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void UseTemplate(int templateId)
+    {
+        // Navigate to form builder with the template ID to use it as a starting point
+        Logger.LogInformation("Using template ID {TemplateId} to create form", templateId);
+        Navigation.NavigateTo($"/form-builder?templateId={templateId}");
+    }
+}

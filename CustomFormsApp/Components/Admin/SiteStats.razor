@@ -1,0 +1,100 @@
+@using CustomFormsApp.Services
+@inject IAdminService AdminService
+@inject ILogger<SiteStats> Logger
+
+<div class="site-stats-component mb-4">
+    <h3 class="mb-3">Site Statistics</h3>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center align-items-center p-3 bg-light border rounded">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            <span>Loading statistics...</span>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-warning" role="alert">
+             <i class="bi bi-exclamation-triangle me-2"></i> Could not load statistics: @errorMessage
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @* Total Users Card *@
+            <div class="col-sm-6 col-md-4">
+                <div class="card text-center h-100 shadow-sm">
+                    <div class="card-body">
+                        <i class="bi bi-people fs-2 text-primary"></i>
+                        <h5 class="card-title mt-2">Total Users</h5>
+                        <p class="card-text display-6">@userCount</p>
+                    </div>
+                </div>
+            </div>
+
+            @* Total Templates Card *@
+            <div class="col-sm-6 col-md-4">
+                <div class="card text-center h-100 shadow-sm">
+                    <div class="card-body">
+                         <i class="bi bi-journal-richtext fs-2 text-info"></i>
+                        <h5 class="card-title mt-2">Total Templates</h5>
+                        <p class="card-text display-6">@templateCount</p>
+                    </div>
+                </div>
+            </div>
+
+            @* Total Responses Card *@
+            <div class="col-sm-6 col-md-4">
+                 <div class="card text-center h-100 shadow-sm">
+                    <div class="card-body">
+                         <i class="bi bi-card-checklist fs-2 text-success"></i>
+                        <h5 class="card-title mt-2">Total Responses</h5>
+                        <p class="card-text display-6">@responseCount</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private int userCount;
+    private int templateCount;
+    private int responseCount;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            // Fetch counts concurrently
+            var userCountTask = AdminService.GetTotalUserCountAsync();
+            var templateCountTask = AdminService.GetTotalTemplateCountAsync();
+            var responseCountTask = AdminService.GetTotalResponseCountAsync();
+
+            await Task.WhenAll(userCountTask, templateCountTask, responseCountTask);
+
+            userCount = await userCountTask;
+            templateCount = await templateCountTask;
+            responseCount = await responseCountTask;
+
+            Logger.LogInformation("Site statistics loaded: Users={UserCount}, Templates={TemplateCount}, Responses={ResponseCount}", userCount, templateCount, responseCount);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading site statistics.");
+            errorMessage = "An error occurred while fetching statistics.";
+            // Set counts to 0 or -1 to indicate failure? Defaulting to 0.
+            userCount = 0;
+            templateCount = 0;
+            responseCount = 0;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

@@ -1,28 +1,120 @@
-﻿@using CustomFormsApp.Components.Account.Shared
-@using CustomFormsApp.Components.Layout
-@inject HttpClient Http
+﻿@using CustomFormsApp.Services
+@using CustomFormsApp.Components.Account.Shared
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+@inject IConfiguration Configuration
+@inject ClerkAuthService ClerkAuth
+@inject ILogger<App> Logger
+@inject IJSRuntime JSRuntime
+@inject LocalizationService LocalizationService
 
 <CascadingAuthenticationState>
+    <!-- Loading State -->
+    @if (_isPrerendering || ClerkAuth.IsInitializing)
+    {
+        <div class="loading-overlay">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+
+    <!-- Error State (keep your existing error display) -->
+    @if (_authError && !_isPrerendering)
+    {
+        <div class="auth-error alert alert-danger" role="alert">
+            <strong>Authentication Error</strong>
+            <p>There was a problem loading the authentication system. Please try refreshing the page.</p>
+        </div>
+    }
+    
     <Router AppAssembly="@typeof(App).Assembly">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
                 <NotAuthorized>
                     @if (context.User.Identity?.IsAuthenticated != true)
                     {
-                        <RedirectToLogin />
+                        <RedirectToLogin ReturnUrl="@Navigation.Uri" />
                     }
                     else
                     {
-                        <p>You are not authorized to access this resource.</p>
+                        <p class="alert alert-danger">You are not authorized to access this resource.</p>
                     }
                 </NotAuthorized>
+                <Authorizing>
+                    <div class="loading-auth">
+                        <span>Authorizing...</span>
+                    </div>
+                </Authorizing>
             </AuthorizeRouteView>
             <FocusOnNavigate RouteData="@routeData" Selector="h1" />
         </Found>
         <NotFound>
-            <LayoutView Layout="@typeof(MainLayout)">
-                <p>Sorry, there's nothing at this address.</p>
-            </LayoutView>
+            <CascadingAuthenticationState>
+                <PageTitle>Not found</PageTitle>
+                <LayoutView Layout="@typeof(MainLayout)">
+                    <div class="container text-center mt-5">
+                        <h1 class="display-4">404 - Page Not Found</h1>
+                        <p class="lead">The page you are looking for doesn't exist or has been moved.</p>
+                        <a href="/" class="btn btn-primary mt-3">Go Home</a>
+                    </div>
+                </LayoutView>
+            </CascadingAuthenticationState>
         </NotFound>
     </Router>
 </CascadingAuthenticationState>
+
+@code {
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    private bool _authError = false;
+    private bool _isPrerendering = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isPrerendering = true;
+        
+        var publishableKey = Configuration["Clerk:PublishableKey"];
+        if (string.IsNullOrEmpty(publishableKey))
+        {
+            Logger.LogError("Missing Clerk publishable key in configuration");
+            _authError = true;
+        }
+        
+        // Add this empty await to satisfy the warning
+        await Task.CompletedTask;
+
+        await base.OnInitializedAsync();
+        
+        // Initialize language service
+        await LocalizationService.InitializeAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try 
+            {
+                var publishableKey = Configuration["Clerk:PublishableKey"];
+                if (!string.IsNullOrEmpty(publishableKey))
+                {
+                    await ClerkAuth.InitializeAsync(publishableKey);
+                    // _authInitialized = true; // This line was removed in the previous fix
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Auth initialization failed");
+                _authError = true; // Set auth error state if initialization fails
+            }
+            finally
+            {
+                _isPrerendering = false;
+                StateHasChanged();
+            }
+        }
+    }
+}

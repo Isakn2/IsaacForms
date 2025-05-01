@@ -1,0 +1,104 @@
+@page "/admin/responses/{ResponseId:int}"
+@attribute [Authorize(Policy = "AdminPolicy")]
+
+@using CustomFormsApp.Data.Models
+@using CustomFormsApp.Services
+@using Microsoft.AspNetCore.Authorization
+
+@inject IFormResponseService FormResponseService
+@inject ILogger<ViewResponseDetails> Logger
+@inject NavigationManager Navigation
+
+<PageTitle>Response Details - Admin</PageTitle>
+
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/dashboard">Admin Dashboard</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Response Details</li>
+        </ol>
+    </nav>
+
+    <h1 class="mb-4">Response Details <span class="text-muted fs-5">(ID: @ResponseId)</span></h1>
+
+    @if (isLoading)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading response details...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading response details...</p>
+        </div>
+    }
+    else if (response == null || !response.Answers.Any())
+    {
+        <div class="alert alert-warning" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i> Response not found or contains no answers.
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                Response Information
+            </div>
+            <div class="card-body">
+                <p><strong>Template:</strong> @(response.Form?.Template?.Title ?? "N/A") (@(response.Form?.Template?.IsDeleted == true ? "Deleted" : "Active"))</p>
+                <p><strong>Submitted By:</strong> @(response.SubmittedBy?.Username ?? response.SubmittedBy?.Email ?? response.SubmittedById)</p>
+                <p><strong>Submitted On:</strong> @response.SubmissionDate.ToLocalTime().ToString("f")</p>
+            </div>
+        </div>
+
+        <h2 class="mb-3">Submitted Answers</h2>
+        @* Placeholder for displaying answers - Logic will be added next *@
+        <div class="list-group">
+            @foreach (var answer in response.Answers.OrderBy(a => a.Question?.Order ?? int.MaxValue))
+            {
+                <div class="list-group-item">
+                    <p class="mb-1"><strong>Q: @(answer.Question?.Text ?? "Question not found")</strong></p>
+                    <p class="mb-0 text-muted">A: @answer.Value</p>
+                </div>
+            }
+        </div>
+
+        <div class="mt-4">
+             <button class="btn btn-secondary" @onclick="GoBack">
+                <i class="bi bi-arrow-left me-1"></i> Back to Admin Dashboard
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int ResponseId { get; set; }
+
+    private FormResponse? response;
+    private bool isLoading = true;
+    private string? errorMessage; // Keep for potential future use
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+         try
+        {
+            response = await FormResponseService.GetResponseAsync(ResponseId); // Corrected: Use GetResponseAsync
+
+            if (response == null)
+            {
+                errorMessage = $"Response with ID {ResponseId} not found.";
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        // Navigate back to the main admin dashboard
+        Navigation.NavigateTo("/admin/dashboard#all-responses-section");
+    }
+}

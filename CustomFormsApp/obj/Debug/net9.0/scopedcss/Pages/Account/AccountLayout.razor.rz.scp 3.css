@@ -1,0 +1,18 @@
+.spinner-border[b-43emrck545] {
+    animation: spinner-border-b-43emrck545 0.75s linear infinite;
+}
+
+@keyframes spinner-border-b-43emrck545 {
+    to { transform: rotate(360deg); }
+}
+
+/* Smooth transitions for alerts */
+.alert[b-43emrck545] {
+    transition: all 0.3s ease;
+}
+
+/* Disabled button styling */
+.btn:disabled[b-43emrck545] {
+    opacity: 0.65;
+    cursor: not-allowed;
+}

@@ -1,147 +1,624 @@
 @page "/form-builder"
+@page "/form-builder/{FormId:int?}"
 @attribute [Authorize]
-@inject FormTemplateService FormService
+@using CustomFormsApp.Services
+@using CustomFormsApp.Data.Enums
+@inject FormBuilderService FormBuilderService
 @inject NavigationManager Navigation
 @inject ILogger<FormBuilder> Logger
 @using CustomFormsApp.Data.Models
 @using Microsoft.AspNetCore.Authorization
 @inject IJSRuntime JSRuntime
+@inject ITemplateService TemplateService
+@inject ICurrentUserService CurrentUserService
+@inject ITopicService TopicService
+@implements IDisposable
 
-<PageTitle>Form Builder</PageTitle>
+<PageTitle>@(IsTemplateMode ? (currentForm.Id > 0 ? "Edit Template" : "Create Template") : (currentForm.Id > 0 ? "Edit Form" : "Create Form"))</PageTitle>
 
 <div class="container mt-4">
-    <EditForm Model="@currentForm" OnValidSubmit="@SaveForm">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
-
-        @if (!string.IsNullOrEmpty(errorMessage))
-        {
-            <div class="alert alert-danger">@errorMessage</div>
-        }
-
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3><i class="bi bi-pencil-square me-2"></i>Form Builder</h3>
-            <button type="submit" class="btn btn-success" disabled="@isSaving">
-                <i class="bi bi-save me-1"></i>
-                @(isSaving ? "Saving..." : "Save Form")
-            </button>
-        </div>
-
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">Form Title</label>
-                    <InputText @bind-Value="currentForm.Name" class="form-control" />
-                    <ValidationMessage For="@(() => currentForm.Name)" />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Description</label>
-                    <InputTextArea @bind-Value="currentForm.Description" class="form-control" rows="3" />
-                </div>
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
             </div>
         </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="@(() => errorMessage = null)" aria-label="Close"></button>
+            </div>
+        }
 
-        <div class="questions-container">
-            @if (questions.Count == 0 && !isLoading)
-            {
-                <div class="alert alert-info">
-                    No questions added yet. Click "Add Question" to get started.
-                </div>
-            }
-            else if (isLoading)
-            {
-                <div class="text-center my-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-            }
+        <EditForm Model="@currentForm" OnValidSubmit="@HandleSave">
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between mb-4 border-bottom pb-3">
+                <button type="button" class="btn btn-secondary" @onclick="NavigateBack">
+                    <i class="bi bi-arrow-left me-1"></i> @(IsTemplateMode ? "Back to Templates" : "Back to Forms")
+                </button>
 
-            @foreach (var (question, index) in questions.Select((q, i) => (q, i + 1)))
-            {
-                <div class="question-item mb-3 p-3 border rounded bg-white"
-                     draggable="true"
-                     @key="question.Id"
-                     @ondragstart="() => OnDragStart(question)"
-                     @ondragover:preventDefault
-                     @ondrop="() => OnDrop(question)">
+                <button type="submit" class="btn btn-success" disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-save me-1"></i>
+                        <span>@(IsTemplateMode ? "Save Template" : "Save Form")</span>
+                    }
+                </button>
+            </div>
 
-                    <div class="d-flex align-items-center mb-2">
-                        <i class="bi bi-grip-vertical me-2 drag-handle" style="cursor: move;"></i>
-                        <span class="badge bg-secondary me-2">@index</span>
-                        <button @onclick="() => DeleteQuestion(question)"
-                                class="btn btn-sm btn-danger ms-auto"
-                                title="Delete question">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-
-                    <div class="mb-3">
-                        <InputText @bind-Value="question.Text" 
-                            class="form-control" 
-                            placeholder="Enter question text" />
-                    </div>
-
+            <div class="card mb-4">
+                <div class="card-body">
                     <div class="row">
-                        <div class="col-md-6">
-                            <label class="form-label">Question Type</label>
-                            <select @bind="question.Type" class="form-select">
-                                @foreach (QuestionType type in Enum.GetValues(typeof(QuestionType)))
-                                {
-                                    <option value="@type">@type.ToString()</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Required</label>
-                            <div class="form-check form-switch">
-                                <input type="checkbox" class="form-check-input" 
-                                       @bind="question.IsRequired" />
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="formName" class="form-label fw-bold">@(IsTemplateMode ? "Template Title" : "Form Title")</label>
+                                <InputText id="formName" @bind-Value="currentForm.Name" class="form-control" placeholder="@(IsTemplateMode ? "Enter template title" : "Enter form title")" />
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            @if (IsTemplateMode)
+                            {
+                                <div class="mb-3">
+                                    <label for="templateTopic" class="form-label fw-bold">Topic</label>
+                                    <InputSelect id="templateTopic" @bind-Value="currentForm.Topic" class="form-select">
+                                        <option value="">-- Select a Topic --</option>
+                                        @if (availableTopics != null)
+                                        {
+                                            @foreach (var topic in availableTopics)
+                                            {
+                                                <option value="@topic.Name">@topic.Name</option>
+                                            }
+                                        }
+                                    </InputSelect>
+                                </div>
+                            }
+                        </div>
+                    </div> <!-- Added missing closing div -->
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="formDescription" class="form-label fw-bold">Description <span class="text-muted small">(Optional)</span></label>
+                                <InputTextArea id="formDescription" @bind-Value="currentForm.Description" class="form-control" rows="2" placeholder="@(IsTemplateMode ? "Enter template description" : "Enter form description")" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            @if (IsTemplateMode)
+                            {
+                                <div class="mb-3 form-check mt-4">
+                                    <div class="d-flex align-items-center">
+                                        <InputCheckbox id="isPublicCheck" class="form-check-input" style="-webkit-appearance:checkbox; -moz-appearance:checkbox; appearance:checkbox;" 
+                                                       @bind-Value="currentForm.IsPublic" />
+                                        <label class="form-check-label ms-2" for="isPublicCheck">
+                                            Make template public
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="mb-3 form-check mt-4">
+                                    <div class="d-flex align-items-center">
+                                        <InputCheckbox id="isFormPublicCheck" class="form-check-input" style="-webkit-appearance:checkbox; -moz-appearance:checkbox; appearance:checkbox;" 
+                                                       @bind-Value="currentForm.IsPublic" />
+                                        <label class="form-check-label ms-2" for="isFormPublicCheck">
+                                            Make form public
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
-            }
-        </div>
+            </div>
+            <div class="questions-container @(questions.Count == 0 ? "empty-container" : "")">
+                @if (questions.Count == 0)
+                {
+                    <div class="text-center p-5 border rounded bg-light">
+                        <i class="bi bi-question-circle display-4 text-muted"></i>
+                        <p class="mt-3">No questions yet.</p>
+                        <button type="button" class="btn btn-primary" @onclick="AddQuestion">
+                            <i class="bi bi-plus-circle me-2"></i>Add your first question
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="form-toolbar mb-3 pb-2 pt-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="text-muted me-2">@questions.Count question@(questions.Count != 1 ? "s" : "")</span>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="ExpandAllQuestions" title="Expand all questions">
+                                        <i class="bi bi-arrows-expand"></i> Expand All
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="CollapseAllQuestions" title="Collapse all questions">
+                                        <i class="bi bi-arrows-collapse"></i> Collapse All
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary" @onclick="AddQuestion">
+                                <i class="bi bi-plus-circle me-1"></i> Add Question
+                            </button>
+                        </div>
+                    </div>
+                    @foreach (var (question, index) in questions.Select((q, i) => (q, i)))
+                    {
+                        <div class="question-item mb-3 border rounded bg-white"
+                             draggable="true" 
+                             data-question-id="@GetQuestionClientId(question, index)"
+                             @key="GetQuestionClientId(question, index)"
+                             @ondragstart="() => OnDragStart(question)"
+                             @ondragend="OnDragEnd"
+                             @ondragenter="() => OnDragEnter(question)"
+                             @ondragleave="() => OnDragLeave(question)"
+                             @ondragover:preventDefault
+                             @ondrop:preventDefault
+                             @ondrop="() => OnDrop(question)">
+                        
+                            <div class="d-flex align-items-center p-2 question-header @(expandedQuestions.Contains(question.Id) ? "border-bottom" : "")" 
+                                 @onclick="() => ToggleQuestionExpanded(question)" 
+                                 style="cursor: pointer;">
+                                <i class="bi bi-grip-vertical me-2 drag-handle" style="cursor: move;" @onclick:stopPropagation></i>
+                                <span class="badge bg-secondary me-2">@(index + 1)</span>
+                                <div class="question-preview flex-grow-1 text-truncate">
+                                    <span class="fw-medium">@question.Text</span>
+                                    <span class="ms-2 badge bg-light text-dark border">
+                                        <i class="bi @question.Type.GetIconClass() me-1 small"></i>
+                                        @question.Type.ToDisplayString()
+                                    </span>
+                                    @if(question.IsRequired)
+                                    {
+                                        <span class="ms-1 text-danger">*</span>
+                                    }
+                                </div>
+                                <div class="d-flex align-items-center ms-2" @onclick:stopPropagation>
+                                    <button type="button" @onclick="() => ToggleQuestionExpanded(question)"  
+                                            class="btn btn-sm btn-outline-secondary me-1"  
+                                            title="@(expandedQuestions.Contains(question.Id) ? "Collapse" : "Expand")">  
+                                        <i class="bi @(expandedQuestions.Contains(question.Id) ? "bi-chevron-up" : "bi-chevron-down")"></i>  
+                                    </button>  
+                                    <button type="button" @onclick="() => DeleteQuestion(question)"  
+                                            class="btn btn-sm btn-outline-danger"  
+                                            title="Delete question">  
+                                        <i class="bi bi-trash"></i>  
+                                    </button>  
+                                </div>
+                            </div>
+                        
+                            @if(expandedQuestions.Contains(question.Id))
+                            {
+                                <div class="question-body p-3">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted" for="question-text-@GetQuestionClientId(question, index)">Question Text:</label>
+                                        <input type="text" 
+                                               id="question-text-@GetQuestionClientId(question, index)"
+                                               name="question-text-@GetQuestionClientId(question, index)"
+                                               value="@question.Text" 
+                                               @oninput="(e) => UpdateQuestionText(question, e)" 
+                                               class="form-control form-control-lg question-text-input"
+                                               placeholder="Enter your question here" />
+                                    </div>
+                                
+                                    <div class="row align-items-center mb-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label" for="question-type-@GetQuestionClientId(question, index)">Question Type:</label>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <!-- Question Type selector -->
+                                            <select id="@($"question-type-{GetQuestionClientId(question, index)}")" 
+                                                    class="form-select" 
+                                                    @onchange="(ChangeEventArgs e) => ChangeQuestionType(question, e)">
+                                                @foreach (var type in Enum.GetValues<QuestionType>())
+                                                {
+                                                    <option value="@type" selected="@(question.Type == type)">
+                                                        @type.ToDisplayString()
+                                                    </option>
+                                                }
+                                            </select>
 
-        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
-            <button type="button" class="btn btn-primary me-md-2" @onclick="AddQuestion">
-                <i class="bi bi-plus-circle me-1"></i> Add Question
-            </button>
-        </div>
-    </EditForm>
+                                        </div>
+                                    </div>
+
+                                    <div class="alert alert-light mb-3">
+                                        <i class="bi @question.Type.GetIconClass() me-2"></i>
+                                        <span>@GetQuestionTypeDescription(question.Type)</span>
+                                    </div>
+
+                                    @if (question.Type.SupportsOptions())
+                                    {
+                                        <div class="mt-3 pb-1">
+                                            <span class="text-muted">Options:</span>
+                                            
+                                            @{
+                                                // Ensure options list exists
+                                                if (question.Options == null)
+                                                {
+                                                    question.Options = new List<string> { "", "" };
+                                                }
+                                            }
+
+                                            <div class="options-grid mt-2">
+                                                @for (int i = 0; i < (question.Options?.Count ?? 0); i++)
+                                                {
+                                                    int optionIndex = i;
+                                                    <div class="option-item d-flex align-items-center mb-2">
+                                                        <div class="option-icon me-2">
+                                                            @if (question.Type == QuestionType.MultipleChoice)
+                                                            {
+                                                                <i class="bi bi-circle"></i>
+                                                            }
+                                                            else if (question.Type == QuestionType.Checkbox)
+                                                            {
+                                                                <i class="bi bi-square"></i>
+                                                            }
+                                                            else
+                                                            {
+                                                                <i class="bi bi-dash"></i>
+                                                            }
+                                                        </div>
+                                                        <label class="visually-hidden" for="option-@(GetQuestionClientId(question, index))-@optionIndex">
+                                                            Option @(optionIndex + 1)
+                                                        </label>
+                                                        <input type="text" 
+                                                               id="option-@(GetQuestionClientId(question, index))-@optionIndex"
+                                                               name="option-@(GetQuestionClientId(question, index))-@optionIndex"
+                                                               class="form-control form-control-sm"
+                                                               value="@(question.Options?[optionIndex] ?? "")" 
+                                                               @oninput="(e) => UpdateOption(question, optionIndex, e.Value?.ToString() ?? string.Empty)"
+                                                               placeholder="Option text" />
+                                                        
+                                                        <button type="button" class="btn btn-sm btn-link text-danger ms-2" 
+                                                                @onclick="() => RemoveOption(question, optionIndex)">
+                                                            <i class="bi bi-x-lg"></i>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" 
+                                                    @onclick="() => AddOption(question)">
+                                                <i class="bi bi-plus"></i> Add Option
+                                            </button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <!-- Preview fields for non-option question types -->
+                                        <div class="mt-3 pb-1">
+                                            <span class="text-muted">Preview:</span>
+                                            
+                                            <div class="mt-2 border rounded p-3 bg-light">
+                                                @switch (question.Type)
+                                                {
+                                                    case QuestionType.SingleLineText:
+                                                        <input type="text" class="form-control" disabled 
+                                                               placeholder="@question.Type.GetPlaceholder()" />
+                                                        break;
+                                                        
+                                                    case QuestionType.MultiLineText:
+                                                        <textarea class="form-control" rows="3" disabled 
+                                                                  placeholder="@question.Type.GetPlaceholder()"></textarea>
+                                                        break;
+                                                        
+                                                    case QuestionType.Date:
+                                                        <input type="date" class="form-control" disabled />
+                                                        break;
+                                                        
+                                                    case QuestionType.Number:
+                                                        <input type="number" class="form-control" disabled 
+                                                               placeholder="@question.Type.GetPlaceholder()" />
+                                                        break;
+                                                        
+                                                    case QuestionType.Email:
+                                                        <input type="email" class="form-control" disabled 
+                                                               placeholder="@question.Type.GetPlaceholder()" />
+                                                        break;
+                                                        
+                                                    case QuestionType.Scale:
+                                                        <div class="d-flex flex-row justify-content-between">
+                                                            @for (int i = 1; i <= 5; i++)
+                                                            {
+                                                                int value = i;
+                                                                <div class="text-center mx-1">
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="radio" disabled
+                                                                               id="scale-@(GetQuestionClientId(question, questions.IndexOf(question)))-@value" 
+                                                                               name="scale-@(GetQuestionClientId(question, questions.IndexOf(question)))" />
+                                                                    </div>
+                                                                    <div class="mt-1">@value</div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                        <div class="d-flex justify-content-between mt-1">
+                                                            <span class="small text-muted">Low</span>
+                                                            <span class="small text-muted">High</span>
+                                                        </div>
+                                                        break;
+                                                }
+                                                
+                                                @if (question.IsRequired)
+                                                {
+                                                    <div class="small text-danger mt-2">* Required</div>
+                                                }
+                                            </div>
+                                            
+                                            <div class="text-muted small mt-2">
+                                                <i class="bi bi-info-circle me-1"></i>
+                                                This is a preview of how the question will appear to respondents.
+                                            </div>
+                                        </div>
+                                    }
+
+                                    <div class="form-check mt-3">
+                                        <input class="form-check-input" type="checkbox"
+                                               id="required-@GetQuestionClientId(question, index)"
+                                               @bind="question.IsRequired"
+                                               style="-webkit-appearance:checkbox; -moz-appearance:checkbox; appearance:checkbox;" />
+                                        <label class="form-check-label" 
+                                               for="required-@GetQuestionClientId(question, index)">  Required </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+
+            <div class="d-flex justify-content-between mt-4 mb-2">
+                <button type="button" class="btn btn-primary" @onclick="AddQuestion">
+                    <i class="bi bi-plus-circle me-1"></i> Add Question
+                </button>
+
+                <!-- Duplicated save button at bottom -->
+                <button type="submit" class="btn btn-success" disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-save me-1"></i>
+                        <span>@(IsTemplateMode ? "Save Template" : "Save Form")</span>
+                    }
+                </button>
+            </div>
+        </EditForm>
+    }
 </div>
 
-@code {
-    private Form currentForm = new()
-    {
-        Id = 0, 
-        Name = "New Form",
-        Description = string.Empty,
-        CreatedDate = DateTime.UtcNow
-    };
+@* Scoped checkbox styling *@
+<style>
+    /* Custom checkbox styling for FormBuilder */
++    /* Force all checkboxes and .form-check-input to use custom appearance */
++    input[type="checkbox"],
++    input.form-check-input {
++        -webkit-appearance: none !important;
++        -moz-appearance: none !important;
++        appearance: none !important;
++        background-image: none !important;
++        width: 18px !important;
++        height: 18px !important;
++        border: 1px solid #ced4da !important;
++        border-radius: 3px !important;
++        background-color: #fff !important;
++        position: relative !important;
++        cursor: pointer !important;
++        vertical-align: middle !important;
++        margin-top: 0 !important;
++    }
++    input[type="checkbox"]:checked,
++    input.form-check-input:checked {
++        background-color: #0d6efd !important;
++        border-color: #0d6efd !important;
++    }
++    input[type="checkbox"]:checked::after,
++    input.form-check-input:checked::after {
++        content: "" !important;
++        position: absolute !important;
++        left: 6px !important;
++        top: 2px !important;
++        width: 5px !important;
++        height: 10px !important;
++        border: solid white !important;
++        border-width: 0 2px 2px 0 !important;
++        transform: rotate(45deg) !important;
++        display: block !important;
++    }
++    input[type="checkbox"]:focus,
++    input.form-check-input:focus {
++        outline: none !important;
++        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
++    }
+</style>
 
+@code {
+    [Parameter]
+    public int? FormId { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Mode { get; set; } 
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int? TemplateId { get; set; } 
+
+    private Form currentForm = new();
     private List<Question> questions = new();
+    private List<Topic> availableTopics = new();
     private Question? draggedQuestion;
     private bool isLoading = true;
     private bool isSaving = false;
     private string? errorMessage = null;
+    private Dictionary<Question, string> _questionClientIds = new Dictionary<Question, string>();
 
-    protected override async Task OnInitializedAsync()
+    private bool IsTemplateMode => Mode?.Equals("template", StringComparison.OrdinalIgnoreCase) ?? false;
+
+    private System.Timers.Timer? autoSaveTimer;
+    private bool hasSavedDraft = false;
+    private bool hasUnsavedChanges = false;
+    private readonly string AUTO_SAVE_PREFIX = "form_builder_draft_";
+    private HashSet<int> expandedQuestions = new HashSet<int>();
+
+    // Get client ID helper method
+    private string GetQuestionClientId(Question question, int index)
     {
+        if (_questionClientIds.TryGetValue(question, out var clientId))
+            return clientId;
+
+        // Generate a more robust client ID
+        clientId = $"q-{Guid.NewGuid()}-{index}";
+        _questionClientIds[question] = clientId;
+        return clientId;
+    }
+
+    private ElementReference sidebarElement;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        currentForm = new(); // Reset form
+        questions = new();   // Reset questions
+        availableTopics = new(); // Reset topics
+        _questionClientIds.Clear();
+        hasUnsavedChanges = false;
+
         try
         {
-            var existingForm = await FormService.GetCurrentFormAsync();
-            if (existingForm != null)
+            string currentUserId = CurrentUserService.GetUserId() ?? throw new UnauthorizedAccessException("User not authenticated.");
+            
+            // Load available topics for template mode
+            if (IsTemplateMode)
             {
-                currentForm = existingForm;
-                questions = await FormService.GetQuestionsAsync(currentForm.Id);
+                availableTopics = await TopicService.GetTopicsAsync();
             }
+            
+            // --- Load Form/Template Data ---
+            if (FormId.HasValue) // Editing existing Form or Template
+            {
+                if (IsTemplateMode)
+                {
+                    var template = await TemplateService.GetTemplateAsync(FormId.Value);
+                    if (template == null || template.CreatedById != currentUserId)
+                    {
+                        errorMessage = "Template not found or you don't have permission to edit it.";
+                        Navigation.NavigateTo("/templates", false); // Added forceLoad: false to prevent refresh
+                        return;
+                    }
+                    // Map Template to Form model for the UI
+                    currentForm = MapTemplateToFormModel(template); // Ensure mapping includes Topic
+                    questions = template.Questions.OrderBy(q => q.Order).ToList();
+                }
+                else
+                {
+                    // Editing an existing Form
+                    currentForm = await FormBuilderService.GetCurrentFormAsync(FormId.Value)
+                                ?? throw new KeyNotFoundException("Form not found.");
+                    if (currentForm.CreatedById != currentUserId)
+                    {
+                         errorMessage = "You don't have permission to edit this form.";
+                         Navigation.NavigateTo("/forms", false); // Added forceLoad: false parameter to prevent refresh
+                         return;
+                    }
+                    questions = await FormBuilderService.GetQuestionsAsync(currentForm.Id);
+                }
+            }
+            else if (TemplateId.HasValue) // Creating a new Form FROM a Template
+            {
+                 if (IsTemplateMode)
+                 {
+                     // This case shouldn't happen based on UI flow (Edit uses FormId route param)
+                     // If it does, treat as editing the template specified by TemplateId query param
+                     var templateToEdit = await TemplateService.GetTemplateAsync(TemplateId.Value);
+                     if (templateToEdit == null || templateToEdit.CreatedById != currentUserId)
+                     {
+                         errorMessage = "Template not found or you don't have permission to edit it.";
+                         Navigation.NavigateTo("/templates");
+                         return;
+                     }
+                     currentForm = MapTemplateToFormModel(templateToEdit); // Ensure mapping includes Topic
+                     questions = templateToEdit.Questions.OrderBy(q => q.Order).ToList();
+                 }
+                 else
+                 {
+                    // Creating a new Form using a Template
+                    var template = await TemplateService.GetTemplateAsync(TemplateId.Value);
+                    if (template == null)
+                    {
+                        errorMessage = "Template not found.";
+                        // Optionally redirect or allow creating a blank form
+                        currentForm = InitializeNewForm(currentUserId); // Initialize blank form
+                    }
+                    else
+                    {
+                        // Initialize a NEW form, copying details from the template
+                        currentForm = new Form
+                        {
+                            Id = 0, // New form ID
+                            Name = template.Title, // Start with template title
+                            Description = template.Description,
+                            CreatedById = currentUserId,
+                            CreatedDate = DateTime.UtcNow,
+                            UpdatedDate = DateTime.UtcNow,
+                            TemplateId = template.Id // Link to the source template
+                        };
+                        // Clone questions from the template for the new form
+                        questions = template.Questions.OrderBy(q => q.Order).Select(tq => new Question
+                        {
+                            Id = 0, // New question ID
+                            Text = tq.Text,
+                            Type = tq.Type,
+                            Order = tq.Order,
+                            IsRequired = tq.IsRequired,
+                            Options = tq.Options?.ToList(), // Create a copy of options
+                            FormId = 0, // Will be set on save
+                            TemplateId = null // Not a template question
+                        }).ToList();
+                    }
+                 }
+            }
+            else // Creating a new blank Form or Template
+            {
+                if (IsTemplateMode)
+                {
+                    // Creating a new Template
+                    currentForm = InitializeNewTemplate(currentUserId);
+                }
+                else
+                {
+                    // Creating a new Form
+                    currentForm = InitializeNewForm(currentUserId);
+                }
+            }
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+             Logger.LogError(ex, "Unauthorized access attempt in FormBuilder.");
+             errorMessage = ex.Message;
+             // Consider redirecting to login if appropriate
+             // Navigation.NavigateTo("/Account/Login", forceLoad: true);
         }
         catch (Exception ex)
         {
-            errorMessage = "Failed to load form data";
-            Logger.LogError(ex, "Error loading form builder data");
+            errorMessage = $"Failed to load data: {ex.Message}";
+            Logger.LogError(ex, "Error loading form/template data in FormBuilder");
+            // Initialize blank to prevent further errors
+            currentForm = IsTemplateMode ? InitializeNewTemplate(CurrentUserService.GetUserId() ?? "") : InitializeNewForm(CurrentUserService.GetUserId() ?? "");
+            questions = new List<Question>();
         }
         finally
         {
@@ -149,99 +626,970 @@
         }
     }
 
-    private async Task AddQuestion()
+    protected override void OnInitialized()
     {
-        var newQuestion = new Question
-        {
-            Text = "New Question",
-            Type = QuestionType.SingleLineText,
-            Order = questions.Count + 1,
-            FormId = currentForm.Id
-        };
-        
-        questions.Add(newQuestion);
-        await Task.CompletedTask;
-        
-        // Scroll to the new question (if needed)
-        await Task.Delay(50); // Small delay to ensure DOM update
-        await JSRuntime.InvokeVoidAsync("scrollToBottom");
+    
+        autoSaveTimer = new System.Timers.Timer(120000); // 2 minutes
+        autoSaveTimer.Elapsed += AutoSaveTimer_Elapsed;
+        autoSaveTimer.AutoReset = true;
+        autoSaveTimer.Start();
     }
 
-    private async Task DeleteQuestion(Question question)
+    private void AutoSaveTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
     {
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Delete this question?"))
-            return;
-
-        try 
+        // Don't auto-save if we're in the middle of a manual save or if there are no unsaved changes
+        if (isSaving || !hasUnsavedChanges)
         {
-            if (question.Id != 0) 
+            Logger.LogInformation("Skipping auto-save because {reason}", 
+                isSaving ? "manual save is in progress" : "no unsaved changes");
+            return;
+        }
+        
+        InvokeAsync(() => SaveDraft());
+    }
+
+    private async Task SaveDraft()
+    {
+        // Skip auto-save in template (manual save only)
+        if (IsTemplateMode)
+        {
+            Logger.LogInformation("Auto-save skipped in template mode");
+            return;
+        }
+         if (isLoading || isSaving) return;
+
+         try
+         {
+            hasUnsavedChanges = true;
+            
+            // Create a draft object with current state
+            var formDraft = new FormDraft
             {
-                await FormService.DeleteQuestionAsync(question.Id);
+                IsTemplateMode = IsTemplateMode,
+                Form = currentForm,
+                Questions = questions,
+                LastSaved = DateTime.UtcNow
+            };
+
+            // Generate a key based on what we're editing
+            string draftKey = GetDraftStorageKey();
+
+            // Save to localStorage with proper serialization settings
+            var json = System.Text.Json.JsonSerializer.Serialize(formDraft, 
+                new System.Text.Json.JsonSerializerOptions { 
+                    WriteIndented = false,
+                    ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve
+                });
+            
+            await JSRuntime.InvokeVoidAsync("appInterop.formUtils.saveDraft", draftKey, json);
+            
+            // Enable the beforeunload warning after first draft save
+            if (!hasSavedDraft)
+            {
+                await EnableBeforeUnloadWarning();
             }
-            questions.Remove(question);
+
+            hasSavedDraft = true;
+            Logger.LogInformation("Draft auto-saved successfully for {type} at {time}", 
+                IsTemplateMode ? "template" : "form", DateTime.UtcNow);
         }
         catch (Exception ex)
         {
-            errorMessage = "Failed to delete question";
-            Logger.LogError(ex, "Error deleting question");
+            Logger.LogError(ex, "Error auto-saving form draft: {Message}", ex.Message);
         }
     }
 
-    private async Task SaveForm()
+    private string GetDraftStorageKey()
     {
-        isSaving = true;
-        errorMessage = null;
+        string entityType = IsTemplateMode ? "template" : "form";
+        
+        // Key issue: In template mode, we should be consistent about using the template's ID
+        string entityId;
+        if (IsTemplateMode)
+        {
+            // For templates, we need to handle the case where a form ID route parameter 
+            // is actually a template ID, or a new template has no ID yet
+            if (FormId.HasValue && FormId.Value > 0)
+            {
+                entityId = FormId.Value.ToString();
+            }
+            else if (TemplateId.HasValue && TemplateId.Value > 0)
+            {
+                entityId = TemplateId.Value.ToString();
+            }
+            else
+            {
+                entityId = "new";
+            }
+        }
+        else
+        {
+            // In form mode, use the form ID
+            entityId = currentForm.Id > 0 ? currentForm.Id.ToString() : "new";
+        }
+        
+        string userId = CurrentUserService.GetUserId() ?? "anonymous";
+        
+        // Format: form_builder_draft_[type]_[id]_[user]
+        string key = $"{AUTO_SAVE_PREFIX}{entityType}_{entityId}_{userId}";
+        Logger.LogDebug("Draft storage key: {key}", key);
+        return key;
+    }
+
+    private async Task EnableBeforeUnloadWarning()
+    {
         try
         {
-            await UpdateQuestionOrders();
-            var savedFormId = await FormService.SaveFormAsync(currentForm, questions);
-            currentForm.Id = savedFormId;
-            Navigation.NavigateTo($"/form-builder/{currentForm.Id}", forceLoad: false);
+            await JSRuntime.InvokeVoidAsync("appInterop.formUtils.setupBeforeUnloadHandler");
         }
         catch (Exception ex)
         {
-            errorMessage = "Failed to save form";
-            Logger.LogError(ex, "Error saving form");
+            Logger.LogWarning(ex, "Error setting up before unload warning");
+        }
+    }
+
+    private async Task DisableBeforeUnloadWarning()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("appInterop.formUtils.removeBeforeUnloadHandler");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error removing before unload warning");
+        }
+    }
+
+    private async Task TryRestoreDraft()
+    {
+        try
+        {
+            // First try the exact key we'd expect for this form/template
+            string draftKey = GetDraftStorageKey();
+            
+            // Log key to console for debugging
+            await JSRuntime.InvokeVoidAsync("console.log", "Looking for draft with key: " + draftKey);
+            
+            // Dump all draft keys to console for debugging
+            await JSRuntime.InvokeVoidAsync("appInterop.formUtils.dumpDraftKeys");
+            
+            var draftJson = await JSRuntime.InvokeAsync<string>("appInterop.formUtils.getDraft", draftKey);
+            
+            // If no draft found with the precise key, try a fallback approach for template mode
+            if (string.IsNullOrEmpty(draftJson) && IsTemplateMode)
+            {
+                await JSRuntime.InvokeVoidAsync("console.log", "No draft found with exact key, trying fallback search...");
+                // Try to find any draft key that matches the template pattern
+                var anyTemplateDraft = await JSRuntime.InvokeAsync<string>(
+                    "appInterop.formUtils.findAnyTemplateDraft", 
+                    CurrentUserService.GetUserId() ?? "anonymous");
+                
+                if (!string.IsNullOrEmpty(anyTemplateDraft))
+                {
+                    draftJson = anyTemplateDraft;
+                    await JSRuntime.InvokeVoidAsync("console.log", "Found template draft via fallback search");
+                }
+            }
+
+            if (string.IsNullOrEmpty(draftJson))
+            {
+                await JSRuntime.InvokeVoidAsync("console.log", "No draft found to restore");
+                return; // No draft to restore
+            }
+
+            try
+            {
+                // Define a class to properly deserialize the draft data
+                var draftData = System.Text.Json.JsonSerializer.Deserialize<FormDraft>(draftJson);
+                
+                if (draftData == null)
+                {
+                    Logger.LogWarning("Draft found but could not be deserialized as FormDraft");
+                    return;
+                }
+
+                // Format the last saved time for display
+                string lastSavedTime = "recently";
+                if (draftData.LastSaved != default)
+                {
+                    lastSavedTime = draftData.LastSaved.ToString("g"); // Use general short date/time pattern
+                }
+
+                // Confirm with user if they want to restore
+                bool restore = await JSRuntime.InvokeAsync<bool>("confirm", 
+                    $"We found a draft of your {(IsTemplateMode ? "template" : "form")} saved at {lastSavedTime}. Would you like to restore it?");
+
+                if (restore)
+                {
+                    // Set the form and questions from the draft
+                    currentForm = draftData.Form;
+                    questions = draftData.Questions;
+
+                    // Regenerate client IDs
+                    _questionClientIds.Clear();
+                    for (int i = 0; i < questions.Count; i++)
+                    {
+                        GetQuestionClientId(questions[i], i);
+                    }
+
+                    hasSavedDraft = true;
+                    hasUnsavedChanges = true;
+                    StateHasChanged();
+                    
+                    // Add warning for page refresh/navigation
+                    await EnableBeforeUnloadWarning();
+                    
+                    // Log success to console
+                    await JSRuntime.InvokeVoidAsync("console.log", 
+                        $"Successfully restored draft with {questions.Count} questions");
+                }
+                else
+                {
+                    // User declined, clear the draft
+                    await ClearDraft();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error parsing form draft JSON");
+                await JSRuntime.InvokeVoidAsync("console.error", "Draft parse error: " + ex.Message);
+                // Try to clean up corrupted draft
+                await ClearDraft();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error restoring form draft");
+            await JSRuntime.InvokeVoidAsync("console.error", "Draft restoration error: " + ex.Message);
+        }
+    }
+
+    // Define a class to deserialize the form draft data
+    private class FormDraft
+    {
+        public bool IsTemplateMode { get; set; }
+        public Form Form { get; set; } = new();
+        public List<Question> Questions { get; set; } = new();
+        public DateTime LastSaved { get; set; }
+    }
+
+    private async Task ClearDraft()
+    {
+        try
+        {
+            // Log that we're clearing draft
+            Logger.LogInformation("Clearing draft data for {type}", IsTemplateMode ? "template" : "form");
+            
+            string draftKey = GetDraftStorageKey();
+            await JSRuntime.InvokeVoidAsync("appInterop.formUtils.clearDraft", draftKey);
+            
+            // Also remove the draft from localStorage directly to ensure it's gone
+            await JSRuntime.InvokeVoidAsync("localStorage.removeItem", draftKey);
+            
+            // If we're in template mode and using a new template that doesn't have an ID yet,
+            // also check for the generic "new" template draft and remove it
+            if (IsTemplateMode && (currentForm.Id == 0))
+            {
+                string genericTemplateKey = $"{AUTO_SAVE_PREFIX}template_new_{CurrentUserService.GetUserId() ?? "anonymous"}";
+                await JSRuntime.InvokeVoidAsync("localStorage.removeItem", genericTemplateKey);
+                Logger.LogInformation("Also cleared generic template draft key: {key}", genericTemplateKey);
+            }
+            
+            hasSavedDraft = false;
+            hasUnsavedChanges = false;
+            
+            Logger.LogInformation("Draft data cleared successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error clearing form draft: {error}", ex.Message);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !isLoading)
+        {
+            // Try to restore draft first
+            await TryRestoreDraft();
+
+            try
+            {
+                // Check if the appInterop.sidebar functions exist before calling them
+                bool sidebarExists = await JSRuntime.InvokeAsync<bool>("eval", 
+                    "typeof appInterop !== 'undefined' && appInterop !== null && typeof appInterop.sidebar !== 'undefined'");
+                
+                if (sidebarExists)
+                {
+                    sidebarElement = await JSRuntime.InvokeAsync<ElementReference>("appInterop.sidebar.getElement");
+                    await JSRuntime.InvokeVoidAsync("appInterop.sidebar.init", sidebarElement);
+                }
+                
+                // Initialize checkboxes to ensure they display correctly
+                await JSRuntime.InvokeVoidAsync("appInterop.formControls.initCheckboxes");
+            }
+            catch (Exception ex)
+            {
+                // Just log the error and continue
+                Logger.LogDebug("Component initialization error: {Message}", ex.Message);
+            }
+        }
+        
+        // Re-initialize checkboxes after every render to ensure they display correctly
+        // This helps when questions are added or expanded dynamically
+        if (!isLoading)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("appInterop.formControls.initCheckboxes");
+            }
+            catch
+            {
+                // Silently handle checkbox initialization errors
+                // No need for unused exception variable
+            }
+        }
+    }
+
+    private Form InitializeNewForm(string userId)
+    {
+        return new Form
+        {
+            Id = 0,
+            Name = "New Form",
+            Description = string.Empty,
+            CreatedById = userId,
+            CreatedDate = DateTime.UtcNow,
+            UpdatedDate = DateTime.UtcNow
+        };
+    }
+
+    private Form InitializeNewTemplate(string userId)
+    {
+        // Use Form model for UI, but set defaults appropriate for a template
+        return new Form
+        {
+            Id = 0, // Represents a new Template
+            Name = "New Template", // Corresponds to Template.Title
+            Topic = string.Empty, // Default topic
+            Description = string.Empty,
+            CreatedById = userId,
+            CreatedDate = DateTime.UtcNow,
+            UpdatedDate = DateTime.UtcNow // Corresponds to Template.LastModifiedDate
+        };
+    }
+
+    private Form MapTemplateToFormModel(Template template)
+    {
+        // Map Template properties to Form model for UI consistency
+        return new Form
+        {
+            Id = template.Id,
+            Name = template.Title,
+            Description = template.Description,
+            Topic = template.Topic,
+            CreatedById = template.CreatedById,
+            CreatedDate = template.CreatedDate,
+            UpdatedDate = template.LastModifiedDate ?? template.CreatedDate,
+            // Keep TemplateId null when editing a template itself
+            TemplateId = null
+        };
+    }
+
+    private Template MapFormModelToTemplate(Form formModel)
+    {
+         // Map Form model back to Template for saving
+         return new Template
+         {
+             Id = formModel.Id,
+             Title = formModel.Name,
+             Description = formModel.Description,
+             Topic = formModel.Topic,
+             CreatedById = formModel.CreatedById, // Should already be set
+             CreatedDate = formModel.CreatedDate, // Should already be set
+             LastModifiedDate = DateTime.UtcNow, // Update modification date
+             IsPublic = formModel.IsPublic, // Set IsPublic property from form model
+             IsDeleted = false // Ensure not marked as deleted on save
+         };
+    }
+
+
+    private async Task HandleSave()
+    {
+        if (isSaving) return;
+
+        isSaving = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Debug logging to trace execution
+            Logger.LogInformation("Attempting to save {type}...", IsTemplateMode ? "template" : "form");
+            
+            // --- Shared Validation ---
+            if (string.IsNullOrWhiteSpace(currentForm.Name))
+            {
+                errorMessage = IsTemplateMode ? "Template Title is required." : "Form Title is required.";
+                return; // Stop saving
+            }
+
+            foreach (var (question, index) in questions.Select((q, i) => (q, i)))
+            {
+                if (string.IsNullOrWhiteSpace(question.Text))
+                {
+                    errorMessage = $"Question #{index + 1} text cannot be empty.";
+                    return; // Stop saving
+                }
+                
+                // Special handling for Scale question type - ensure it has options for min/max values
+                if (question.Type == QuestionType.Scale)
+                {
+                    // For Scale questions, ensure we have at least the "Low" and "High" labels
+                    question.Options ??= new List<string> { "1", "5", "Low", "High" };
+                    
+                    // Make sure Scale question always has 4 option items (min, max, lowLabel, highLabel)
+                    while (question.Options.Count < 4)
+                    {
+                        question.Options.Add(question.Options.Count < 2 ? "5" : "High");
+                    }
+                    
+                    Logger.LogInformation("Scale question {id} saved with options: {options}", 
+                        question.Id, string.Join(", ", question.Options));
+                }
+                else if (question.Type.RequiresOptions())
+                {
+                    question.Options ??= new List<string>();
+                    // Remove trailing empty options before validation
+                    while (question.Options.Count > 0 && string.IsNullOrWhiteSpace(question.Options.Last()))
+                    {
+                        question.Options.RemoveAt(question.Options.Count - 1);
+                    }
+                    if (!question.Options.Any(o => !string.IsNullOrWhiteSpace(o)))
+                    {
+                        errorMessage = $"Question #{index + 1} ('{question.Text.Substring(0, Math.Min(question.Text.Length, 20))}...') must have at least one non-empty option.";
+                        return; // Stop saving
+                    }
+                    // Ensure at least one option exists if required, even if validation passes (e.g., user deleted all)
+                    if (question.Options.Count == 0)
+                    {
+                        question.Options.Add(""); // Empty string instead of "Option 1"
+                    }
+                }
+                else
+                {
+                    question.Options = null; // Ensure options are null for non-option types
+                }
+                // Update order before saving
+                question.Order = index + 1;
+            }
+
+            // --- Save Logic ---
+            if (IsTemplateMode)
+            {
+                // Saving a Template
+                var templateToSave = MapFormModelToTemplate(currentForm);
+                Logger.LogInformation("Template to save: Id={id}, Title={title}, Topic={topic}, IsPublic={isPublic}", 
+                    templateToSave.Id, templateToSave.Title, templateToSave.Topic, templateToSave.IsPublic);
+                
+                // Ensure questions are correctly linked for Template saving
+                foreach(var q in questions)
+                {
+                    q.TemplateId = templateToSave.Id > 0 ? templateToSave.Id : 0; // Link to template, 0 if new
+                    q.FormId = null; // Ensure FormId is null
+                }
+
+                Logger.LogInformation("Calling TemplateService.SaveTemplateAsync with {count} questions", questions.Count);
+                var savedTemplate = await TemplateService.SaveTemplateAsync(templateToSave, questions);
+                
+                if (savedTemplate == null)
+                {
+                    throw new Exception("Template service returned null after save operation");
+                }
+                
+                Logger.LogInformation("Template saved successfully with ID: {id}", savedTemplate.Id);
+                currentForm.Id = savedTemplate.Id; // Update ID if it was new
+
+                // Update client IDs after save
+                UpdateClientIdsAfterSave(savedTemplate.Questions.ToList());
+
+                // After successful save, clear the draft to prevent auto-save issues
+                await ClearDraft();
+                
+                await JSRuntime.InvokeVoidAsync("alert", "Template saved successfully!");
+                
+                // Use navigation without refresh to prevent losing state
+                await DisableBeforeUnloadWarning();
+                Navigation.NavigateTo("/templates", false);
+            }
+            else
+            {
+                // Saving a Form
+                currentForm.UpdatedDate = DateTime.UtcNow;
+                if (currentForm.Id == 0) currentForm.CreatedDate = DateTime.UtcNow;
+
+                // Ensure questions are correctly linked for Form saving
+                foreach(var q in questions)
+                {
+                    q.FormId = currentForm.Id > 0 ? currentForm.Id : 0; // Link to form, 0 if new
+                    q.TemplateId = null; // Ensure TemplateId is null
+                }
+
+                var savedFormId = await FormBuilderService.SaveFormAsync(currentForm, questions);
+                if (savedFormId <= 0) throw new Exception("Failed to save form.");
+
+                var wasNewForm = currentForm.Id == 0;
+                currentForm.Id = savedFormId; // Update ID if it was new
+
+                // Update client IDs after save (need to refetch questions for Form)
+                var savedQuestions = await FormBuilderService.GetQuestionsAsync(savedFormId);
+                UpdateClientIdsAfterSave(savedQuestions);
+
+                // After successful save, clear the draft
+                await ClearDraft();
+
+                await JSRuntime.InvokeVoidAsync("alert", "Form saved successfully!");
+                
+                // Use navigation without refresh to prevent losing state
+                await DisableBeforeUnloadWarning();
+                Navigation.NavigateTo("/forms", false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving {ModeName}", IsTemplateMode ? "template" : "form");
+            errorMessage = $"An error occurred: {ex.Message}";
         }
         finally
         {
             isSaving = false;
+            StateHasChanged(); // Ensure UI updates after save attempt
         }
+    }
+
+    public void Dispose()
+    {
+        // Stop and dispose the timer
+        autoSaveTimer?.Stop();
+        autoSaveTimer?.Dispose();
+        
+        // Make sure to disable the beforeunload warning when component is disposed
+        // This is safe to call even if JSRuntime is being disposed since we're not awaiting it
+        try {
+            _ = JSRuntime.InvokeVoidAsync("appInterop.formUtils.removeBeforeUnloadHandler");
+        } catch { /* Ignore errors during disposal */ }
+    }
+
+    private async Task NavigateBack()
+    {
+        if (hasUnsavedChanges)
+        {
+            bool confirm = await JSRuntime.InvokeAsync<bool>("confirm", 
+                "You have unsaved changes. Are you sure you want to leave this page?");
+                
+            if (!confirm)
+            {
+                return; // Stay on the page if the user cancels
+            }
+            
+            // User confirmed, disable warning and navigate away
+            await DisableBeforeUnloadWarning();
+        }
+        
+        if (IsTemplateMode)
+        {
+            Navigation.NavigateTo("/templates");
+        }
+        else
+        {
+            Navigation.NavigateTo("/forms");
+        }
+    }
+
+    private string GetQuestionTypeDescription(QuestionType type)
+    {
+        return type switch
+        {
+            QuestionType.SingleLineText => "Collects a short text response (one line).",
+            QuestionType.MultiLineText => "Collects a longer text response (multiple lines).",
+            QuestionType.MultipleChoice => "Lets respondents select one option from a list.",
+            QuestionType.Checkbox => "Lets respondents select multiple options from a list.",
+            QuestionType.Date => "Collects a date input.",
+            QuestionType.Number => "Collects a numeric value.",
+            QuestionType.Email => "Collects an email address.",
+            QuestionType.Scale => "Lets respondents select a value on a scale.",
+            QuestionType.Dropdown => "Lets respondents select one option from a dropdown list.",
+            _ => string.Empty
+        };
     }
 
     private void OnDragStart(Question question)
     {
         draggedQuestion = question;
+        try
+        {
+            var clientId = GetQuestionClientId(question, questions.IndexOf(question));
+            var selector = $"[data-question-id='{clientId}']";
+            JSRuntime.InvokeVoidAsync("updateDragState", selector, "add", "dragging");
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "JS interop error on drag start"); }
     }
 
-    private async Task OnDrop(Question targetQuestion)
+    private void OnDragEnd()
     {
-        if (draggedQuestion == null || draggedQuestion == targetQuestion)
-            return;
-
-        var fromIndex = questions.IndexOf(draggedQuestion);
-        var toIndex = questions.IndexOf(targetQuestion);
-
-        if (fromIndex >= 0 && toIndex >= 0)
+        if (draggedQuestion != null)
         {
-            questions.RemoveAt(fromIndex);
-            questions.Insert(toIndex, draggedQuestion);
-            
-            await UpdateQuestionOrders();
+            try { JSRuntime.InvokeVoidAsync("resetDragState", ".question-item", "dragging"); }
+            catch (Exception ex) { Logger.LogWarning(ex, "JS interop error on drag end"); }
+            draggedQuestion = null;
+        }
+        // Reset target highlights on drop/end
+        try { JSRuntime.InvokeVoidAsync("resetDragState", ".question-item", "drag-target"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "JS interop error resetting target class"); }
+    }
+
+    private void OnDragEnter(Question question)
+    {
+        if (draggedQuestion != null && !question.Equals(draggedQuestion))
+        {
+            try
+            {
+                var clientId = GetQuestionClientId(question, questions.IndexOf(question));
+                var selector = $"[data-question-id='{clientId}']";
+                JSRuntime.InvokeVoidAsync("updateDragState", selector, "add", "drag-target");
+            }
+            catch (Exception ex) { Logger.LogWarning(ex, "JS interop error on drag enter"); }
         }
     }
 
-    private async Task UpdateQuestionOrders()
+    private void OnDragLeave(Question question)
     {
-        for (int i = 0; i < questions.Count; i++)
+        // Only remove target class if not dragging over itself
+        if (draggedQuestion != null && !question.Equals(draggedQuestion))
         {
-            questions[i].Order = i + 1;
+            try
+            {
+                var clientId = GetQuestionClientId(question, questions.IndexOf(question));
+                var selector = $"[data-question-id='{clientId}']";
+                JSRuntime.InvokeVoidAsync("updateDragState", selector, "remove", "drag-target");
+            }
+            catch (Exception ex) { Logger.LogWarning(ex, "JS interop error on drag leave"); }
+        }
+    }
+
+    private void OnDrop(Question targetQuestion)
+    {
+        if (draggedQuestion == null || draggedQuestion.Equals(targetQuestion))
+        {
+            OnDragEnd(); // Ensure classes are reset even if drop is invalid
+            return;
+        }
+
+        int fromIndex = questions.IndexOf(draggedQuestion);
+        int toIndex = questions.IndexOf(targetQuestion);
+
+        Logger.LogInformation("OnDrop called: Moving question from index {FromIndex} to {ToIndex}", fromIndex, toIndex);
+
+        if (fromIndex < 0 || toIndex < 0)
+        {
+            OnDragEnd(); // Ensure classes are reset
+            Logger.LogWarning("Invalid indices in OnDrop: fromIndex={FromIndex}, toIndex={ToIndex}", fromIndex, toIndex);
+            return; // Should not happen if lists are in sync
+        }
+
+        try
+        {
+            // Store reference to the item being moved
+            var movingQuestion = questions[fromIndex];
+            
+            // Reorder the list
+            questions.RemoveAt(fromIndex);
+            
+            // Adjust index if removing from before the target
+            if (fromIndex < toIndex) toIndex--;
+            
+            questions.Insert(toIndex, movingQuestion);
+
+            // Update Order property for all questions based on their new position in the list
+            for (int i = 0; i < questions.Count; i++) 
+            { 
+                questions[i].Order = i + 1;
+                Logger.LogInformation("Question {Index} updated with Order {Order}: {Text}", i, questions[i].Order, questions[i].Text);
+            }
+            
+            // Mark that we have unsaved changes
+            hasUnsavedChanges = true;
+            
+            // Trigger auto-save after changing question order
+            InvokeAsync(() => SaveDraft()).ContinueWith(t => 
+            {
+                if (t.IsFaulted)
+                {
+                    Logger.LogError(t.Exception, "Error auto-saving after reordering questions");
+                }
+                else
+                {
+                    Logger.LogInformation("Auto-save completed after reordering questions");
+                }
+            });
+
+            // Use JS console.log to verify the reordering in browser
+            JSRuntime.InvokeVoidAsync("console.log", "Questions reordered:", 
+                questions.Select(q => $"ID: {q.Id}, Order: {q.Order}, Text: {q.Text}").ToArray());
+                
+            OnDragEnd(); // Reset drag state and classes
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during OnDrop operation");
+            OnDragEnd(); // Ensure we clean up even if an error occurs
+        }
+    }
+
+    private void DeleteQuestion(Question question)
+    {
+        questions.Remove(question);
+        _questionClientIds.Remove(question); // Remove from tracking
+        
+        // Mark that we have unsaved changes but don't trigger an immediate auto-save
+        hasUnsavedChanges = true;
+        
+        StateHasChanged();
+    }
+
+    private void UpdateQuestionText(Question question, ChangeEventArgs args)
+    {
+        question.Text = args.Value?.ToString() ?? string.Empty;
+        hasUnsavedChanges = true;
+        
+        // Trigger auto-save when question text changes
+        InvokeAsync(() => SaveDraft());
+    }
+
+    private async Task AddQuestion()
+    {
+        var newQuestion = new Question
+        {
+            Text = "New Question", // Default text
+            Type = QuestionType.SingleLineText, // Default type
+            Order = questions.Count + 1, // Set order based on current count
+            IsRequired = false,
+        };
+
+        // Initialize options for specific question types
+        InitializeOptionsForQuestionType(newQuestion);
+
+        questions.Add(newQuestion);
+        // Generate a temporary client ID immediately for the key in the UI loop
+        GetQuestionClientId(newQuestion, questions.Count - 1);
+        hasUnsavedChanges = true;
+        
+        // Trigger auto-save when adding a question
+        await SaveDraft();
+        
+        StateHasChanged(); // Update UI to show the new question
+
+        // Scroll to bottom after UI updates
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("appInterop.utils.scrollToBottom");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Scroll to bottom failed - non-critical error.");
+        }
+    }
+
+    // Helper method to ensure question types have appropriate options
+    private void InitializeOptionsForQuestionType(Question question)
+    {
+        // Initialize options based on question type
+        if (question.Type == QuestionType.Scale)
+        {
+            question.Options = new List<string> { "1", "5", "Low", "High" }; // min, max, lowLabel, highLabel - keeping these as they're functional
+        }
+        else if (question.Type == QuestionType.MultipleChoice || question.Type == QuestionType.Checkbox)
+        {
+            question.Options = new List<string> { "", "" }; // Empty strings instead of "Option 1", "Option 2"
+        }
+        else if (question.Type == QuestionType.Dropdown)
+        {
+            question.Options = new List<string> { "", "" }; // Empty strings instead of "Select...", "Option 1", "Option 2"
+        }
+        else if (!question.Type.SupportsOptions())
+        {
+            question.Options = null; // Clear options for types that don't use them
+        }
+    }
+
+    private void AddOption(Question question)
+    {
+        question.Options ??= new List<string>();
+        question.Options.Add(string.Empty);
+        StateHasChanged();
+    }
+
+    private void RemoveOption(Question question, int index)
+    {
+        if (question.Options == null || index < 0 || index >= question.Options.Count) return;
+
+        question.Options.RemoveAt(index);
+
+        // Ensure at least one option slot remains if required by adding an empty string
+        if (question.Type.RequiresOptions() && question.Options.Count == 0)
+        {
+            question.Options.Add(""); // Empty string instead of "Option 1"
         }
         
-        if (currentForm.Id > 0)
+        // Auto-save when removing an option
+        InvokeAsync(() => SaveDraft());
+        StateHasChanged();
+    }
+
+    private void UpdateOption(Question question, int index, string value)
+    {
+        question.Options ??= new List<string>();
+        if (index >= 0 && index < question.Options.Count)
         {
-            await FormService.UpdateQuestionOrderAsync(currentForm.Id, 
-                questions.Select(q => q.Id).ToList());
+            question.Options[index] = value;
+            // Auto-save when option changes
+            InvokeAsync(() => SaveDraft());
         }
+        else if (index == question.Options.Count) // Handle adding if index is next
+        {
+            question.Options.Add(value);
+            InvokeAsync(() => SaveDraft());
+            StateHasChanged();
+        }
+    }
+
+    private void OnQuestionTypeChanged(Question question)
+    {
+        // Initialize appropriate options for the new question type
+        InitializeOptionsForQuestionType(question);
+        
+        // Mark as having unsaved changes
+        hasUnsavedChanges = true;
+        
+        // Trigger auto-save
+        InvokeAsync(() => SaveDraft());
+        
+        // Update UI
+        StateHasChanged();
+        
+        Logger.LogInformation("Question type changed to {type} for question {id}", question.Type, question.Id);
+    }
+
+    private void ChangeQuestionType(Question question, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<QuestionType>(e.Value?.ToString(), out var newType))
+        {
+            question.Type = newType;
+            InitializeOptionsForQuestionType(question);
+            hasUnsavedChanges = true;
+            // Trigger draft save
+            InvokeAsync(() => SaveDraft());
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleQuestionExpanded(Question question)
+    {
+        if (expandedQuestions.Contains(question.Id))
+        {
+            expandedQuestions.Remove(question.Id);
+        }
+        else
+        {
+            expandedQuestions.Add(question.Id);
+        }
+        StateHasChanged();
+    }
+
+    private void ExpandAllQuestions()
+    {
+        // Add all question IDs to the expanded set
+        foreach (var question in questions)
+        {
+            expandedQuestions.Add(question.Id);
+        }
+        StateHasChanged();
+    }
+
+    private void CollapseAllQuestions()
+    {
+        // Clear the expanded questions set
+        expandedQuestions.Clear();
+        StateHasChanged();
+    }
+
+    private void UpdateClientIdsAfterSave(List<Question> savedQuestions)
+    {
+        _questionClientIds.Clear();
+        var questionMap = savedQuestions.ToDictionary(q => q.Id); // Map by DB ID
+
+        // Rebuild the client ID dictionary using the actual saved questions
+        // This assumes the 'questions' list in the component might still have old references or temp IDs
+        questions = savedQuestions.OrderBy(q => q.Order).ToList(); // Update the component's list
+
+        for (int i = 0; i < questions.Count; i++)
+        {
+            var q = questions[i];
+            _questionClientIds[q] = $"q-{q.Id}-{i}"; // Use DB ID
+        }
+        StateHasChanged(); // Refresh UI with potentially updated question list and keys
+    }
+}
+<style>
+    .badge.bg-business {
+    background-color: #0e437c !important; /* Business */
+    color: #ffffff !important;
+    }
+
+    .badge.bg-education {
+        background-color: #07f7ff !important; /*  Education */
+        color: #000000 !important;
+    }
+
+    .badge.bg-feedback {
+        background-color: #ddca1c !important; /*  Feedback */
+        color: #ffffff !important;
+    }
+
+    .badge.bg-default {
+        background-color: #5f656b !important; /* default */
+        color: #ffffff !important;
+    }
+
+    .badge.bg-events {
+        background-color: #ff5722 !important; /*  Events */
+        color: #ffffff !important;
+    }
+
+    .badge.bg-general {
+        background-color: #9e9e9e !important; /*  General */
+        color: #ffffff !important;
+    }
+</style>
+
+@functions {
+    private string GetBadgeClass(string topic)
+    {
+        // Handle null or empty topic values
+        if (string.IsNullOrEmpty(topic))
+        {
+            return "badge bg-default";
+        }
+        
+        return topic.ToLower() switch
+        {
+            "business" => "badge bg-business",
+            "education" => "badge bg-education",
+            "feedback" => "badge bg-feedback",
+            "events" => "badge bg-events",
+            "general" => "badge bg-general",
+            _ => "badge bg-default"
+        };
     }
 }

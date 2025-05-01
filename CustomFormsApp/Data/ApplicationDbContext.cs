@@ -1,56 +1,74 @@
 // Data/ApplicationDbContext.cs
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using CustomFormsApp.Data.Models;
-using Microsoft.AspNetCore.Identity;
 
 namespace CustomFormsApp.Data
 {
-    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
+    public class ApplicationDbContext : DbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options) { }
 
-        public DbSet<TemplateAccess> TemplateAccesses { get; set; }
-        public DbSet<Template> Templates { get; set; }
-        public DbSet<Form> Forms { get; set; }
-        public DbSet<Question> Questions { get; set; }
-        public DbSet<FormResponse> FormResponses { get; set; }
-        public DbSet<Answer> Answers { get; set; }
-        public DbSet<Tag> Tags { get; set; }
-        public DbSet<TemplateTag> TemplateTags { get; set; }
-        public DbSet<Comment> Comments { get; set; }
-        public DbSet<Like> Likes { get; set; }
+        public DbSet<ClerkUserDbModel> Users { get; set; } = null!;
+        public DbSet<TemplateAccess> TemplateAccesses { get; set; } = null!;
+        public DbSet<Template> Templates { get; set; } = null!;
+        public DbSet<Form> Forms { get; set; } = null!;
+        public DbSet<Question> Questions { get; set; } = null!;
+        public DbSet<FormResponse> FormResponses { get; set; } = null!;
+        public DbSet<Answer> Answers { get; set; } = null!;
+        public DbSet<Tag> Tags { get; set; } = null!;
+        public DbSet<TemplateTag> TemplateTags { get; set; } = null!;
+        public DbSet<Comment> Comments { get; set; } = null!;
+        public DbSet<Like> Likes { get; set; } = null!;
+        public DbSet<Topic> Topics { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            // Configure ApplicationUser
-            builder.Entity<ApplicationUser>(entity =>
+            // Configure ClerkUserDbModel
+            builder.Entity<ClerkUserDbModel>(entity =>
             {
-                // Add this configuration for self-reference
-                entity.HasOne(u => u.Creator)
-                    .WithMany(u => u.CreatedUsers)
-                    .HasForeignKey(u => u.CreatorId)
-                    .IsRequired(false)  // Make it optional
-                    .OnDelete(DeleteBehavior.Restrict);
+                entity.ToTable("Users");
+                entity.HasKey(u => u.Id);
+                entity.Property(u => u.Id).ValueGeneratedNever(); // ID comes from Clerk
 
-                // Relationships
+                entity.Property(u => u.FirstName)
+                    .HasMaxLength(100)
+                    .IsRequired(false);
+
+                entity.Property(u => u.LastName)
+                    .HasMaxLength(100)
+                    .IsRequired(false);
+
+                entity.Property(u => u.Email)
+                    .HasMaxLength(256)
+                    .IsRequired();
+
+                entity.Property(u => u.Username)
+                    .HasMaxLength(100)
+                    .IsRequired(false);
+
+                entity.Property(u => u.ImageUrl)
+                    .HasMaxLength(500)
+                    .IsRequired(false);
+
+                entity.HasIndex(u => u.Email).IsUnique();
+                entity.HasIndex(u => u.Username).IsUnique().HasFilter("\"Username\" IS NOT NULL"); // Unique constraint only if Username is not null
                 entity.HasMany(u => u.CreatedTemplates)
-                    .WithOne(t => t.Creator)
-                    .HasForeignKey(t => t.CreatorId)
-                    .OnDelete(DeleteBehavior.Restrict);  
+                    .WithOne(t => t.CreatedBy)
+                    .HasForeignKey(t => t.CreatedById)
+                    .OnDelete(DeleteBehavior.Restrict); 
 
                 entity.HasMany(u => u.CreatedForms)
-                    .WithOne(f => f.Creator)
-                    .HasForeignKey(f => f.CreatorId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .WithOne(f => f.CreatedBy)
+                    .HasForeignKey(f => f.CreatedById)
+                    .OnDelete(DeleteBehavior.Restrict); 
 
-                entity.HasMany(u => u.TemplateAccesses)
-                    .WithOne(ta => ta.User)
-                    .HasForeignKey(ta => ta.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasMany(u => u.FormResponses)
+                    .WithOne(r => r.SubmittedBy)
+                    .HasForeignKey(r => r.SubmittedById)
+                    .OnDelete(DeleteBehavior.Restrict); 
 
                 entity.HasMany(u => u.Comments)
                     .WithOne(c => c.User)
@@ -60,47 +78,14 @@ namespace CustomFormsApp.Data
                 entity.HasMany(u => u.Likes)
                     .WithOne(l => l.User)
                     .HasForeignKey(l => l.UserId)
-                    .OnDelete(DeleteBehavior.Restrict);  // Changed to Restrict
+                    .OnDelete(DeleteBehavior.Restrict); 
 
-                entity.HasMany(u => u.FormResponses)
-                    .WithOne(fr => fr.User)
-                    .HasForeignKey(fr => fr.UserId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                // Property configurations
-                entity.Property(u => u.DisplayName)
-                    .HasMaxLength(100)
-                    .IsRequired(false);  // Optional
-
-                entity.Property(u => u.UserName)
-                    .HasMaxLength(256);
-
-                entity.Property(u => u.NormalizedUserName)
-                    .HasMaxLength(256);
-
-                entity.Property(u => u.Email)
-                    .HasMaxLength(256);
-
-                entity.Property(u => u.NormalizedEmail)
-                    .HasMaxLength(256);
-
-                // Indexes
-                entity.HasIndex(u => u.NormalizedEmail)
-                    .HasDatabaseName("IX_User_Email")
-                    .IsUnique();
-
-                entity.HasIndex(u => u.NormalizedUserName)
-                    .HasDatabaseName("IX_User_Username")
-                    .IsUnique();
-
-                entity.HasIndex(u => u.DisplayName)
-                    .HasDatabaseName("IX_User_DisplayName")
-                    .IsUnique(false);
-
-                entity.HasIndex(u => u.CreatorId)
-                    .HasDatabaseName("IX_User_CreatorId");
+                 entity.HasMany(u => u.TemplateAccesses)
+                    .WithOne(ta => ta.User)
+                    .HasForeignKey(ta => ta.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
-            
+
             // Configure Template
             builder.Entity<Template>(entity =>
             {
@@ -110,7 +95,7 @@ namespace CustomFormsApp.Data
 
                 entity.Property(t => t.Description)
                     .HasMaxLength(4000)
-                    .IsRequired();
+                    .IsRequired(false); // Allow null description
 
                 entity.Property(t => t.ImageUrl)
                     .HasMaxLength(500);
@@ -124,40 +109,35 @@ namespace CustomFormsApp.Data
                 entity.HasIndex(t => t.CreatedDate);
                 entity.HasIndex(t => t.IsPublic);
                 entity.HasIndex(t => t.IsDeleted);
-                entity.HasIndex(t => new { t.Title, t.Description });
+                entity.HasIndex(t => new { t.Title, t.Description }); // Example composite index for search
 
+                // Relationships for Template
                 entity.HasMany(t => t.Questions)
                     .WithOne(q => q.Template)
                     .HasForeignKey(q => q.TemplateId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.Cascade); // Deleting template deletes its questions
 
-                entity.HasMany(t => t.Responses)
-                    .WithOne(r => r.Template)
-                    .HasForeignKey(r => r.TemplateId)
-                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasMany(t => t.TemplateTags)
+                    .WithOne(tt => tt.Template)
+                    .HasForeignKey(tt => tt.TemplateId)
+                    .OnDelete(DeleteBehavior.Cascade); // Deleting template removes tag associations
 
                 entity.HasMany(t => t.Comments)
                     .WithOne(c => c.Template)
                     .HasForeignKey(c => c.TemplateId)
-                    .OnDelete(DeleteBehavior.Restrict);
+                    .OnDelete(DeleteBehavior.Cascade); // Deleting template deletes comments
 
                 entity.HasMany(t => t.Likes)
                     .WithOne(l => l.Template)
                     .HasForeignKey(l => l.TemplateId)
-                    .OnDelete(DeleteBehavior.Restrict);  // Changed from Cascade to Restrict
+                    .OnDelete(DeleteBehavior.Cascade); // Deleting template deletes likes
 
                 entity.HasMany(t => t.RestrictedAccess)
                     .WithOne(ta => ta.Template)
                     .HasForeignKey(ta => ta.TemplateId)
-                    .OnDelete(DeleteBehavior.Restrict);  // Changed from Cascade to Restrict
+                    .OnDelete(DeleteBehavior.Cascade); // Deleting template removes access rights
 
-                entity.HasMany(t => t.Tags)
-                    .WithMany(t => t.Templates)
-                    .UsingEntity<TemplateTag>(
-                        tt => tt.HasOne(e => e.Tag).WithMany(t => t.TemplateTags),
-                        tt => tt.HasOne(e => e.Template).WithMany(t => t.TemplateTags)
-                    );
-
+                // Query Filter for soft delete
                 entity.HasQueryFilter(t => !t.IsDeleted);
             });
 
@@ -168,16 +148,23 @@ namespace CustomFormsApp.Data
                     .HasMaxLength(200)
                     .IsRequired();
 
+                // Relationships for Form
                 entity.HasMany(f => f.Questions)
                     .WithOne(q => q.Form)
                     .HasForeignKey(q => q.FormId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.Cascade); // Deleting form deletes its questions
+
+                entity.HasMany(f => f.Responses)
+                    .WithOne(r => r.Form)
+                    .HasForeignKey(r => r.FormId)
+                    .OnDelete(DeleteBehavior.Cascade); // Deleting form deletes its responses
 
                 entity.HasOne(f => f.Template)
-                    .WithMany()
+                    .WithMany() // No navigation property back from Template to Forms
                     .HasForeignKey(f => f.TemplateId)
-                    .OnDelete(DeleteBehavior.Restrict);
+                    .OnDelete(DeleteBehavior.Restrict); // Prevent deleting template if forms exist
 
+                // Query Filter to exclude forms whose template is soft-deleted
                 entity.HasQueryFilter(f => (f.TemplateId == null) || (!f.Template!.IsDeleted));
             });
 
@@ -191,13 +178,46 @@ namespace CustomFormsApp.Data
                 entity.Property(q => q.Description)
                     .HasMaxLength(2000);
 
-                entity.HasIndex(q => q.Order);
-
                 entity.Property(q => q.Type)
-                    .HasConversion<string>()
-                    .HasMaxLength(20);
-                
-                entity.HasQueryFilter(q => q.Template != null && !q.Template.IsDeleted);
+                    .HasMaxLength(20) // e.g., "Text", "MultipleChoice"
+                    .IsRequired();
+
+                entity.Property(q => q.Options) // Store options as JSON string or similar
+                    .IsRequired(false);
+
+                entity.HasIndex(q => q.Order);
+                entity.HasQueryFilter(q => q.Form != null && (q.Form.TemplateId == null || (q.Form.Template != null && !q.Form.Template.IsDeleted)));
+
+
+                // Relationships for Question
+                entity.HasMany(q => q.Answers)
+                    .WithOne(a => a.Question)
+                    .HasForeignKey(a => a.QuestionId)
+                    .OnDelete(DeleteBehavior.Restrict); // 
+            });
+
+            // Configure FormResponse
+            builder.Entity<FormResponse>(entity =>
+            {
+                entity.HasIndex(r => r.SubmissionDate);
+                entity.HasQueryFilter(r => r.Form != null && (r.Form.TemplateId == null || (r.Form.Template != null && !r.Form.Template.IsDeleted)));
+
+
+                // Relationships for FormResponse
+                entity.HasMany(r => r.Answers)
+                    .WithOne(a => a.Response)
+                    .HasForeignKey(a => a.ResponseId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure Answer
+            builder.Entity<Answer>(entity =>
+            {
+                entity.Property(a => a.Value)
+                    .HasMaxLength(4000) 
+                    .IsRequired();
+                entity.HasQueryFilter(a => a.Question != null && a.Question.Form != null && (a.Question.Form.TemplateId == null || (a.Question.Form.Template != null && !a.Question.Form.Template.IsDeleted)));
+
             });
 
             // Configure Tag
@@ -207,99 +227,61 @@ namespace CustomFormsApp.Data
                     .HasMaxLength(50)
                     .IsRequired();
 
-                entity.HasIndex(t => t.Name)
-                    .IsUnique();
+                entity.HasIndex(t => t.Name).IsUnique();
 
+                // Relationships for Tag
                 entity.HasMany(t => t.TemplateTags)
                     .WithOne(tt => tt.Tag)
-                    .HasForeignKey(tt => tt.TagId);
+                    .HasForeignKey(tt => tt.TagId)
+                    .OnDelete(DeleteBehavior.Cascade); // Deleting tag removes associations
             });
 
-            // Configure FormResponse
-            builder.Entity<FormResponse>(entity =>
+            // Configure TemplateTag (Join Table)
+            builder.Entity<TemplateTag>(entity =>
             {
-                entity.HasIndex(r => r.SubmittedDate);
+                entity.HasKey(tt => new { tt.TemplateId, tt.TagId });
+                entity.HasQueryFilter(tt => tt.Template != null && !tt.Template.IsDeleted);
 
-                entity.HasMany(r => r.Answers)
-                    .WithOne(a => a.Response)
-                    .HasForeignKey(a => a.ResponseId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasQueryFilter(r => !r.Template.IsDeleted);
-            });
-
-            // Configure Answer
-            builder.Entity<Answer>(entity =>
-            {
-                entity.Property(a => a.Value)
-                    .HasMaxLength(4000);
-
-                entity.HasQueryFilter(a => a.Question != null && a.Question.Template != null && !a.Question.Template.IsDeleted);
+                // Relationships configured in Template and Tag entities
             });
 
             // Configure Comment
             builder.Entity<Comment>(entity =>
             {
-                entity.Property(c => c.Content)
+                entity.Property(c => c.Text)
                     .HasMaxLength(2000)
                     .IsRequired();
 
                 entity.HasIndex(c => c.CreatedDate);
-                entity.HasIndex(c => c.IsDeleted);
+                entity.HasQueryFilter(c => c.Template != null && !c.Template.IsDeleted);
 
-                entity.HasQueryFilter(c => !c.IsDeleted);
+                // Relationships configured in User and Template entities
             });
 
             // Configure Like
             builder.Entity<Like>(entity =>
             {
-                entity.HasKey(l => new { l.TemplateId, l.UserId });
-                entity.HasQueryFilter(l => !l.Template.IsDeleted);
+                entity.HasKey(l => new { l.UserId, l.TemplateId }); // Composite key
+                entity.HasQueryFilter(l => l.Template != null && !l.Template.IsDeleted);
+
             });
 
-            // Configure TemplateAccess
+             // Configure TemplateAccess
             builder.Entity<TemplateAccess>(entity =>
             {
-                // Composite primary key
-                entity.HasKey(ta => new { ta.TemplateId, ta.UserId });
-                
-                // Query filter
-                entity.HasQueryFilter(ta => !ta.Template.IsDeleted);
-                
-                // Relationship with Template
-                entity.HasOne(ta => ta.Template)
-                    .WithMany(t => t.RestrictedAccess)
-                    .HasForeignKey(ta => ta.TemplateId)
-                    .OnDelete(DeleteBehavior.Restrict);  // Changed from Cascade to Restrict
-                
-                // Relationship with User (if you have this navigation property)
-                entity.HasOne(ta => ta.User)
-                    .WithMany(u => u.TemplateAccesses)
-                    .HasForeignKey(ta => ta.UserId)
-                    .OnDelete(DeleteBehavior.Restrict);  // Changed from Cascade to Restrict
+                entity.HasKey(ta => new { ta.TemplateId, ta.UserId }); // Composite key
+                entity.HasQueryFilter(ta => ta.Template != null && !ta.Template.IsDeleted);
+
+                // Relationships configured in User and Template entities
             });
 
-            // Configure TemplateTag
-            builder.Entity<TemplateTag>(entity =>
-            {
-                // Composite primary key
-                entity.HasKey(tt => new { tt.TemplateId, tt.TagId });
-                
-                // Query filter
-                entity.HasQueryFilter(tt => !tt.Template.IsDeleted);
-                
-                // Relationship with Template
-                entity.HasOne(tt => tt.Template)
-                    .WithMany(t => t.TemplateTags)
-                    .HasForeignKey(tt => tt.TemplateId)
-                    .OnDelete(DeleteBehavior.Restrict);  // Changed from Cascade to Restrict
-                
-                // Relationship with Tag
-                entity.HasOne(tt => tt.Tag)
-                    .WithMany(t => t.TemplateTags)
-                    .HasForeignKey(tt => tt.TagId)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
+            builder.Entity<Topic>().HasData(
+                new Topic { Id = 1, Name = "General" },
+                new Topic { Id = 2, Name = "Education" },
+                new Topic { Id = 3, Name = "Business" },
+                new Topic { Id = 4, Name = "Feedback" },
+                new Topic { Id = 5, Name = "Events" }
+            );
         }
     }
 }
