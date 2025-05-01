@@ -3,8 +3,7 @@ services:
     name: customforms-app
     runtime: docker
     plan: starter
-    dockerfilePath: ./Dockerfile
-    rootDirectory: ./CustomFormsApp
+    dockerfilePath: ./CustomFormsApp/Dockerfile
     envVars:
       - key: DEFAULT_CONNECTION
         fromDatabase:
