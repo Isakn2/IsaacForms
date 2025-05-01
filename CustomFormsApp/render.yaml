@@ -3,9 +3,8 @@ services:
     name: customforms-app
     runtime: docker
     plan: starter
-    dockerfilePath: ./CustomFormsApp/Dockerfile  # Update path
-    publishDirectory: ./CustomFormsApp/bin/Release/net8.0/publish  # Update path
-    rootDirectory: ./CustomFormsApp  # Add this line to specify the root directory
+    dockerfilePath: ./Dockerfile
+    rootDirectory: ./CustomFormsApp
     envVars:
       - key: DEFAULT_CONNECTION
         fromDatabase:
