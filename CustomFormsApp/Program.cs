@@ -142,6 +142,7 @@ else
 }
 
 app.UseHttpsRedirection();
+app.MapGet("/health", () => Results.Ok("Healthy"));
 
 app.UseRequestLocalization(new RequestLocalizationOptions
 {

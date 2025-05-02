@@ -42,6 +42,9 @@
   <data name="WelcomeMessage" xml:space="preserve">
     <value>Welcome to IsaacForms</value>
   </data>
+  <data name="WelcomeSubtitle" xml:space="preserve">
+    <value>Create, share, and manage your forms and templates easily.</value>
+  </data>
   <data name="CreateForm" xml:space="preserve">
     <value>Create a Form</value>
   </data>
@@ -62,5 +65,35 @@
   </data>
   <data name="ViewAll" xml:space="preserve">
     <value>View All</value>
+  </data>
+  <data name="PageTitle" xml:space="preserve">
+    <value>Home - Isaac Forms</value>
+  </data>
+  <data name="PublicForms" xml:space="preserve">
+    <value>Public Forms</value>
+  </data>
+  <data name="ExploreTopics" xml:space="preserve">
+    <value>Explore Topics</value>
+  </data>
+  <data name="ViewAllTopics" xml:space="preserve">
+    <value>View All Topics</value>
+  </data>
+  <data name="SystemAdministration" xml:space="preserve">
+    <value>System Administration</value>
+  </data>
+  <data name="AdministratorAccess" xml:space="preserve">
+    <value>Administrator Access</value>
+  </data>
+  <data name="EnterAdminPassword" xml:space="preserve">
+    <value>Enter administrator password:</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="AccessAdmin" xml:space="preserve">
+    <value>Access Admin</value>
+  </data>
+  <data name="IncorrectPassword" xml:space="preserve">
+    <value>Incorrect password. Please try again.</value>
   </data>
 </root>

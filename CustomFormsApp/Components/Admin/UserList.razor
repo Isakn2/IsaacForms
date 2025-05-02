@@ -88,12 +88,6 @@
                         <tr class="@(user.IsBlocked ? "table-danger" : "")">
                             <td class="text-center">
                                 <div class="btn-group">
-                                    <button class="btn btn-sm btn-outline-primary" 
-                                            @onclick="() => ShowUserDetails(user.Id)" 
-                                            title="View Details">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                    
                                     @if (user.IsAdmin)
                                     {
                                         <button class="btn btn-sm btn-outline-danger" 

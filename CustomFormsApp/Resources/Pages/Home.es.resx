@@ -63,4 +63,34 @@
   <data name="ViewAll" xml:space="preserve">
     <value>Ver Todo</value>
   </data>
+  <data name="PublicForms" xml:space="preserve">
+    <value>Formularios Públicos</value>
+  </data>
+  <data name="ExploreTopics" xml:space="preserve">
+    <value>Explorar Temas</value>
+  </data>
+  <data name="ViewAllTopics" xml:space="preserve">
+    <value>Ver Todos los Temas</value>
+  </data>
+  <data name="WelcomeSubtitle" xml:space="preserve">
+    <value>Crea, comparte y gestiona tus formularios y plantillas fácilmente.</value>
+  </data>
+  <data name="SystemAdministration" xml:space="preserve">
+    <value>Administración del Sistema</value>
+  </data>
+  <data name="AdministratorAccess" xml:space="preserve">
+    <value>Acceso de Administrador</value>
+  </data>
+  <data name="EnterAdminPassword" xml:space="preserve">
+    <value>Ingrese la contraseña de administrador:</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="AccessAdmin" xml:space="preserve">
+    <value>Acceder a Administración</value>
+  </data>
+  <data name="IncorrectPassword" xml:space="preserve">
+    <value>Contraseña incorrecta. Por favor, inténtelo de nuevo.</value>
+  </data>
 </root>

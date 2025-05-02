@@ -1,4 +1,5 @@
 @page "/responses/view/template/{TemplateId:int}"
+@page "/responses/view/form/{FormId:int}"
 @attribute [Authorize]
 
 @using CustomFormsApp.Data.Models
@@ -8,9 +9,11 @@
 @inject IFormResponseService FormResponseService
 @inject IFormService FormService
 @inject ITemplateService TemplateService
+@inject IFormBuilderService FormBuilderService
 @inject IAuthorizationService AuthorizationService
 @inject NavigationManager Navigation
 @inject ILogger<ViewResponses> Logger
+@inject ICurrentUserService CurrentUserService
 
 <PageTitle>View Responses: @(template?.Title ?? "Loading...")</PageTitle> 
 
@@ -104,9 +107,12 @@
 @code {
     [Parameter]
     public int TemplateId { get; set; } // Changed parameter name
+    
+    [Parameter]
+    public int FormId { get; set; }
 
-    private Template? template; // Store the template
-    private Form? form; // Still need the form eventually
+    private Template? template; // Store the templat
+    private Form? form; 
     private List<FormResponse>? responses;
     private List<Question> questionsInOrder = new List<Question>();
     private bool isLoading = true;
@@ -125,13 +131,6 @@
         responses = null;
         isAuthorized = false;
 
-        if (TemplateId <= 0) // Check TemplateId
-        {
-            errorMessage = "Invalid Template ID.";
-            isLoading = false;
-            return;
-        }
-
         var user = (await AuthenticationStateTask!)?.User;
         var currentUserId = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value; // Get user ID
 
@@ -144,59 +143,128 @@
 
         try
         {
-            // 1. Get Template details (including questions for table header)
-            template = await TemplateService.GetTemplateAsync(TemplateId); // Use TemplateService
-
-            if (template == null)
+            // Check which route was used - template or form
+            if (TemplateId > 0)
             {
-                errorMessage = "Template not found.";
-                isLoading = false;
-                return;
+                // Handle template-based responses
+                await LoadResponsesForTemplate(TemplateId, user, currentUserId);
             }
-
-            // 2. Check Authorization (using TemplateOwnerPolicy on the Template)
-            var authorizationResult = await AuthorizationService.AuthorizeAsync(user, template, "TemplateOwnerPolicy");
-            isAuthorized = authorizationResult.Succeeded;
-
-            if (!isAuthorized)
+            else if (FormId > 0) 
             {
-                Logger.LogWarning("User {UserId} is not authorized to view responses for Template {TemplateId}", currentUserId, TemplateId);
-                isLoading = false;
-                return; // Stop loading if not authorized
-            }
-
-            // 3. Get or Create the associated Form
-            // It's okay to potentially create the Form record here if it doesn't exist yet
-            form = await FormService.GetOrCreateFormForTemplateAsync(TemplateId, template.CreatedById); // Use template owner ID for creation if needed
-
-            // 4. Get Questions (already loaded with template)
-            if (template.Questions != null)
-            {
-                 questionsInOrder = template.Questions.OrderBy(q => q.Order).ToList();
-            }
-
-            // 5. Get Responses for the Form if authorized and form exists
-            if (form != null)
-            {
-                 var responseData = await FormResponseService.GetResponsesForFormAsync(form.Id);
-                 responses = responseData.ToList();
+                // Handle form-based responses
+                await LoadResponsesForForm(FormId, user, currentUserId);
             }
             else
             {
-                // Should not happen if GetOrCreateFormForTemplateAsync works correctly, but handle defensively
-                Logger.LogWarning("Could not find or create a Form associated with Template {TemplateId}", TemplateId);
-                responses = new List<FormResponse>(); // Show empty list
+                errorMessage = "Invalid Template ID or Form ID.";
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error loading responses or checking authorization for Template {TemplateId}", TemplateId);
+            Logger.LogError(ex, "Error loading responses for Template {TemplateId} or Form {FormId}", TemplateId, FormId);
             errorMessage = "An error occurred while loading responses.";
         }
         finally
         {
             isLoading = false;
         }
+    }
+
+    private async Task LoadResponsesForTemplate(int templateId, System.Security.Claims.ClaimsPrincipal user, string currentUserId)
+    {
+        // 1. Get Template details (including questions for table header)
+        template = await TemplateService.GetTemplateAsync(templateId);
+
+        if (template == null)
+        {
+            errorMessage = "Template not found.";
+            return;
+        }
+
+        // 2. Check Authorization (using TemplateOwnerPolicy on the Template)
+        var authorizationResult = await AuthorizationService.AuthorizeAsync(user, template, "TemplateOwnerPolicy");
+        isAuthorized = authorizationResult.Succeeded;
+
+        if (!isAuthorized)
+        {
+            Logger.LogWarning("User {UserId} is not authorized to view responses for Template {TemplateId}", currentUserId, templateId);
+            return;
+        }
+
+        // 3. Get or Create the associated Form
+        form = await FormService.GetOrCreateFormForTemplateAsync(templateId, template.CreatedById);
+
+        // 4. Get Questions (already loaded with template)
+        if (template.Questions != null)
+        {
+            questionsInOrder = template.Questions.OrderBy(q => q.Order).ToList();
+        }
+
+        // 5. Get Responses for the Form if authorized and form exists
+        if (form != null)
+        {
+            var responseData = await FormResponseService.GetResponsesForFormAsync(form.Id);
+            responses = responseData.ToList();
+        }
+        else
+        {
+            Logger.LogWarning("Could not find or create a Form associated with Template {TemplateId}", templateId);
+            responses = new List<FormResponse>();
+        }
+    }
+
+    private async Task LoadResponsesForForm(int formId, System.Security.Claims.ClaimsPrincipal user, string currentUserId)
+    {
+        // 1. Get Form details
+        form = await FormService.GetFormAsync(formId);
+
+        if (form == null)
+        {
+            errorMessage = "Form not found.";
+            return;
+        }
+
+        // 2. Check Authorization - only form owner can view responses
+        isAuthorized = form.CreatedById == currentUserId || user.IsInRole("Admin");
+
+        if (!isAuthorized)
+        {
+            Logger.LogWarning("User {UserId} is not authorized to view responses for Form {FormId}", currentUserId, formId);
+            return;
+        }
+
+        // 3. If the form has a template, get it to display questions properly
+        if (form.TemplateId.HasValue)
+        {
+            template = await TemplateService.GetTemplateAsync(form.TemplateId.Value);
+        }
+        else
+        {
+            // For standalone forms, we'll need to get the questions directly
+            // For now, create a simple template object with the form's info
+            template = new Template
+            {
+                Id = 0,
+                Title = form.Name,
+                Description = form.Description,
+                CreatedById = form.CreatedById,
+                CreatedDate = form.CreatedDate
+            };
+
+            // Get questions for this form directly
+            var questions = await FormBuilderService.GetQuestionsAsync(formId);
+            template.Questions = questions;
+        }
+
+        // 4. Get Questions
+        if (template?.Questions != null)
+        {
+            questionsInOrder = template.Questions.OrderBy(q => q.Order).ToList();
+        }
+
+        // 5. Get Responses for the Form
+        var responseData = await FormResponseService.GetResponsesForFormAsync(formId);
+        responses = responseData.ToList();
     }
 
     // Helper to get Template with Questions if not already loaded
@@ -262,7 +330,16 @@
 
     private void GoBack()
     {
-        // Navigate back to profile or template list, depending on context
-        Navigation.NavigateTo("/profile"); // Or use JS interop for history.back()
+        // Navigate back based on context: forms for form responses, profile for template responses
+        if (FormId > 0)
+        {
+            // If viewing form responses, go back to forms
+            Navigation.NavigateTo("/forms");
+        }
+        else
+        {
+            // If viewing template responses, go back to profile
+            Navigation.NavigateTo("/account/profile");
+        }
     }
 }

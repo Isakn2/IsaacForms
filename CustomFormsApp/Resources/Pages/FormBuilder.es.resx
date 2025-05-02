@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="EditTemplate" xml:space="preserve">
+    <value>Editar Plantilla</value>
+  </data>
+  <data name="CreateTemplate" xml:space="preserve">
+    <value>Crear Plantilla</value>
+  </data>
+  <data name="EditForm" xml:space="preserve">
+    <value>Editar Formulario</value>
+  </data>
+  <data name="CreateForm" xml:space="preserve">
+    <value>Crear Formulario</value>
+  </data>
+  <data name="Loading" xml:space="preserve">
+    <value>Cargando...</value>
+  </data>
+  <data name="BackToTemplates" xml:space="preserve">
+    <value>Volver a Plantillas</value>
+  </data>
+  <data name="BackToForms" xml:space="preserve">
+    <value>Volver a Formularios</value>
+  </data>
+  <data name="ViewOriginalTemplate" xml:space="preserve">
+    <value>Ver Plantilla Original</value>
+  </data>
+  <data name="Saving" xml:space="preserve">
+    <value>Guardando...</value>
+  </data>
+  <data name="SaveTemplate" xml:space="preserve">
+    <value>Guardar Plantilla</value>
+  </data>
+  <data name="SaveForm" xml:space="preserve">
+    <value>Guardar Formulario</value>
+  </data>
+  <data name="TemplateDetails" xml:space="preserve">
+    <value>Detalles de la Plantilla</value>
+  </data>
+  <data name="FormDetails" xml:space="preserve">
+    <value>Detalles del Formulario</value>
+  </data>
+  <data name="TemplateTitle" xml:space="preserve">
+    <value>Título de la Plantilla</value>
+  </data>
+  <data name="FormTitle" xml:space="preserve">
+    <value>Título del Formulario</value>
+  </data>
+  <data name="EnterTemplateTitle" xml:space="preserve">
+    <value>Ingrese el título de la plantilla</value>
+  </data>
+  <data name="EnterFormTitle" xml:space="preserve">
+    <value>Ingrese el título del formulario</value>
+  </data>
+  <data name="Topic" xml:space="preserve">
+    <value>Tema</value>
+  </data>
+  <data name="SelectTopic" xml:space="preserve">
+    <value>-- Seleccione un Tema --</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Descripción</value>
+  </data>
+  <data name="Optional" xml:space="preserve">
+    <value>(Opcional)</value>
+  </data>
+  <data name="EnterTemplateDescription" xml:space="preserve">
+    <value>Ingrese la descripción de la plantilla</value>
+  </data>
+  <data name="EnterFormDescription" xml:space="preserve">
+    <value>Ingrese la descripción del formulario</value>
+  </data>
+  <data name="MakeTemplatePublic" xml:space="preserve">
+    <value>Hacer plantilla pública</value>
+  </data>
+  <data name="MakeFormPublic" xml:space="preserve">
+    <value>Hacer formulario público</value>
+  </data>
+  <data name="NoQuestionsYet" xml:space="preserve">
+    <value>Aún no hay preguntas.</value>
+  </data>
+  <data name="AddYourFirstQuestion" xml:space="preserve">
+    <value>Agregue su primera pregunta</value>
+  </data>
+  <data name="Questions" xml:space="preserve">
+    <value>preguntas</value>
+  </data>
+  <data name="Question" xml:space="preserve">
+    <value>pregunta</value>
+  </data>
+  <data name="ExpandAll" xml:space="preserve">
+    <value>Expandir Todas</value>
+  </data>
+  <data name="CollapseAll" xml:space="preserve">
+    <value>Colapsar Todas</value>
+  </data>
+  <data name="AddQuestion" xml:space="preserve">
+    <value>Agregar Pregunta</value>
+  </data>
+  <data name="QuestionText" xml:space="preserve">
+    <value>Texto de la Pregunta:</value>
+  </data>
+  <data name="EnterYourQuestionHere" xml:space="preserve">
+    <value>Escriba su pregunta aquí</value>
+  </data>
+  <data name="QuestionType" xml:space="preserve">
+    <value>Tipo de Pregunta:</value>
+  </data>
+  <data name="Options" xml:space="preserve">
+    <value>Opciones:</value>
+  </data>
+  <data name="Option" xml:space="preserve">
+    <value>Opción</value>
+  </data>
+  <data name="OptionText" xml:space="preserve">
+    <value>Texto de la opción</value>
+  </data>
+  <data name="AddOption" xml:space="preserve">
+    <value>Agregar Opción</value>
+  </data>
+  <data name="Preview" xml:space="preserve">
+    <value>Vista previa:</value>
+  </data>
+  <data name="Required" xml:space="preserve">
+    <value>Obligatorio</value>
+  </data>
+  <data name="Low" xml:space="preserve">
+    <value>Bajo</value>
+  </data>
+  <data name="High" xml:space="preserve">
+    <value>Alto</value>
+  </data>
+  <data name="PreviewDescription" xml:space="preserve">
+    <value>Esto es una vista previa de cómo aparecerá la pregunta para los encuestados.</value>
+  </data>
+  <!-- Question type descriptions -->
+  <data name="SingleLineTextDescription" xml:space="preserve">
+    <value>Recopila una respuesta de texto corta (una línea).</value>
+  </data>
+  <data name="MultiLineTextDescription" xml:space="preserve">
+    <value>Recopila una respuesta de texto más larga (múltiples líneas).</value>
+  </data>
+  <data name="MultipleChoiceDescription" xml:space="preserve">
+    <value>Permite a los encuestados seleccionar una opción de una lista.</value>
+  </data>
+  <data name="CheckboxDescription" xml:space="preserve">
+    <value>Permite a los encuestados seleccionar múltiples opciones de una lista.</value>
+  </data>
+  <data name="DateDescription" xml:space="preserve">
+    <value>Recopila una fecha.</value>
+  </data>
+  <data name="NumberDescription" xml:space="preserve">
+    <value>Recopila un valor numérico.</value>
+  </data>
+  <data name="EmailDescription" xml:space="preserve">
+    <value>Recopila una dirección de correo electrónico.</value>
+  </data>
+  <data name="ScaleDescription" xml:space="preserve">
+    <value>Permite a los encuestados seleccionar un valor en una escala.</value>
+  </data>
+  <data name="DropdownDescription" xml:space="preserve">
+    <value>Permite a los encuestados seleccionar una opción de una lista desplegable.</value>
+  </data>
+  <!-- Question type names -->
+  <data name="SingleLineText" xml:space="preserve">
+    <value>Texto de una línea</value>
+  </data>
+  <data name="MultiLineText" xml:space="preserve">
+    <value>Texto de múltiples líneas</value>
+  </data>
+  <data name="MultipleChoice" xml:space="preserve">
+    <value>Opción múltiple</value>
+  </data>
+  <data name="Checkbox" xml:space="preserve">
+    <value>Casilla de verificación</value>
+  </data>
+  <data name="Date" xml:space="preserve">
+    <value>Fecha</value>
+  </data>
+  <data name="Number" xml:space="preserve">
+    <value>Número</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>Correo electrónico</value>
+  </data>
+  <data name="Scale" xml:space="preserve">
+    <value>Escala</value>
+  </data>
+  <data name="Dropdown" xml:space="preserve">
+    <value>Lista desplegable</value>
+  </data>
+  <!-- Placeholders -->
+  <data name="SingleLineTextPlaceholder" xml:space="preserve">
+    <value>Escriba su respuesta aquí...</value>
+  </data>
+  <data name="MultiLineTextPlaceholder" xml:space="preserve">
+    <value>Escriba su respuesta detallada aquí...</value>
+  </data>
+  <data name="NumberPlaceholder" xml:space="preserve">
+    <value>Ingrese un número...</value>
+  </data>
+  <data name="EmailPlaceholder" xml:space="preserve">
+    <value>Ingrese su correo electrónico...</value>
+  </data>
+  <!-- System messages -->
+  <data name="TemplateRequiredError" xml:space="preserve">
+    <value>El título de la plantilla es obligatorio.</value>
+  </data>
+  <data name="FormRequiredError" xml:space="preserve">
+    <value>El título del formulario es obligatorio.</value>
+  </data>
+  <data name="QuestionTextError" xml:space="preserve">
+    <value>El texto de la pregunta #{0} no puede estar vacío.</value>
+  </data>
+  <data name="QuestionOptionError" xml:space="preserve">
+    <value>La pregunta #{0} ('{1}...') debe tener al menos una opción no vacía.</value>
+  </data>
+  <data name="TemplateSaveSuccess" xml:space="preserve">
+    <value>¡Plantilla guardada exitosamente!</value>
+  </data>
+  <data name="FormSaveSuccess" xml:space="preserve">
+    <value>¡Formulario guardado exitosamente!</value>
+  </data>
+  <data name="UnsavedChangesWarning" xml:space="preserve">
+    <value>Tiene cambios sin guardar. ¿Está seguro de que desea salir de esta página?</value>
+  </data>
+  <data name="RestoreDraftConfirm" xml:space="preserve">
+    <value>Encontramos un borrador de su {0} guardado a las {1}. ¿Desea restaurarlo?</value>
+  </data>
+  <data name="Template" xml:space="preserve">
+    <value>plantilla</value>
+  </data>
+  <data name="Form" xml:space="preserve">
+    <value>formulario</value>
+  </data>
+</root>

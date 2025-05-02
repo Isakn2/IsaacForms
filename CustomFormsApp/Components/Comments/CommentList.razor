@@ -82,11 +82,17 @@
     {
         isLoading = true;
         errorMessage = null;
-        StateHasChanged(); // Show loading state immediately
+        
+        // Force UI update immediately to show loading spinner
+        await InvokeAsync(StateHasChanged);
 
         try
         {
             comments = await CommentService.GetCommentsForTemplateAsync(TemplateId);
+            
+            // Log info to verify comments were loaded
+            Logger.LogInformation("Loaded {Count} comments for template {TemplateId}", 
+                comments?.Count ?? 0, TemplateId);
         }
         catch (Exception ex)
         {
@@ -96,7 +102,9 @@
         finally
         {
             isLoading = false;
-            StateHasChanged(); // Update UI with comments or error
+            
+            // Force UI update after comments are loaded
+            await InvokeAsync(StateHasChanged);
         }
     }
 

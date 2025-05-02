@@ -96,13 +96,21 @@ else
         try
         {
             var addedComment = await CommentService.AddCommentAsync(TemplateId, currentUserId, newCommentText);
+            
+            Logger.LogInformation("Comment added successfully to template {TemplateId}", TemplateId);
 
-            // Clear input and notify parent
+            // Clear input first
             newCommentText = string.Empty;
+            
+            // Then notify parent component
             if (OnCommentAdded.HasDelegate)
             {
+                Logger.LogInformation("Notifying parent that comment was added to template {TemplateId}", TemplateId);
                 await OnCommentAdded.InvokeAsync(addedComment);
             }
+            
+            // Force UI update to clear the comment input field
+            await InvokeAsync(StateHasChanged);
         }
         catch (UnauthorizedAccessException ex)
         {

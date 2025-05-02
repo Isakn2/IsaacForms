@@ -3,25 +3,29 @@
 @attribute [Authorize]
 @using CustomFormsApp.Services
 @using CustomFormsApp.Data.Enums
+@using CustomFormsApp.Data.Models
+@using Microsoft.AspNetCore.Authorization
+@using CustomFormsApp.Components.Likes
+@using Microsoft.Extensions.Localization
+
 @inject FormBuilderService FormBuilderService
 @inject NavigationManager Navigation
 @inject ILogger<FormBuilder> Logger
-@using CustomFormsApp.Data.Models
-@using Microsoft.AspNetCore.Authorization
 @inject IJSRuntime JSRuntime
 @inject ITemplateService TemplateService
 @inject ICurrentUserService CurrentUserService
 @inject ITopicService TopicService
+@inject IStringLocalizer<FormBuilder> Localizer
 @implements IDisposable
 
-<PageTitle>@(IsTemplateMode ? (currentForm.Id > 0 ? "Edit Template" : "Create Template") : (currentForm.Id > 0 ? "Edit Form" : "Create Form"))</PageTitle>
+<PageTitle>@(IsTemplateMode ? (currentForm.Id > 0 ? Localizer["EditTemplate"] : Localizer["CreateTemplate"]) : (currentForm.Id > 0 ? Localizer["EditForm"] : Localizer["CreateForm"]))</PageTitle>
 
 <div class="container mt-4">
     @if (isLoading)
     {
         <div class="d-flex justify-content-center my-5">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">@Localizer["Loading"]</span>
             </div>
         </div>
     }
@@ -40,57 +44,73 @@
             <!-- Form Actions -->
             <div class="d-flex justify-content-between mb-4 border-bottom pb-3">
                 <button type="button" class="btn btn-secondary" @onclick="NavigateBack">
-                    <i class="bi bi-arrow-left me-1"></i> @(IsTemplateMode ? "Back to Templates" : "Back to Forms")
+                    <i class="bi bi-arrow-left me-1"></i> @(IsTemplateMode ? Localizer["BackToTemplates"] : Localizer["BackToForms"])
                 </button>
 
-                <button type="submit" class="btn btn-success" disabled="@isSaving">
-                    @if (isSaving)
+                <div class="d-flex gap-2">
+                    <!-- Add Like button when viewing a template-based form -->
+                    @if (TemplateId.HasValue && !IsTemplateMode)
                     {
-                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        <span>Saving...</span>
+                        <div class="me-2">
+                            <LikeButton TemplateId="@TemplateId.Value" />
+                        </div>
+                        
+                        <!-- Add View Template button -->
+                        <button class="btn btn-outline-primary me-2" @onclick="ViewOriginalTemplate">
+                            <i class="bi bi-file-earmark-text me-1"></i> @Localizer["ViewOriginalTemplate"]
+                        </button>
                     }
-                    else
-                    {
-                        <i class="bi bi-save me-1"></i>
-                        <span>@(IsTemplateMode ? "Save Template" : "Save Form")</span>
-                    }
-                </button>
+
+                    <button type="submit" class="btn btn-success" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>@Localizer["Saving"]</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-save me-1"></i>
+                            <span>@(IsTemplateMode ? Localizer["SaveTemplate"] : Localizer["SaveForm"])</span>
+                        }
+                    </button>
+                </div>
             </div>
 
+            <!-- Form Header Section -->
             <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">@(IsTemplateMode ? Localizer["TemplateDetails"] : Localizer["FormDetails"])</h5>
+                </div>
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-8">
                             <div class="mb-3">
-                                <label for="formName" class="form-label fw-bold">@(IsTemplateMode ? "Template Title" : "Form Title")</label>
-                                <InputText id="formName" @bind-Value="currentForm.Name" class="form-control" placeholder="@(IsTemplateMode ? "Enter template title" : "Enter form title")" />
+                                <label for="formName" class="form-label fw-bold">@(IsTemplateMode ? Localizer["TemplateTitle"] : Localizer["FormTitle"])</label>
+                                <InputText id="formName" @bind-Value="currentForm.Name" class="form-control" placeholder="@(IsTemplateMode ? Localizer["EnterTemplateTitle"] : Localizer["EnterFormTitle"])" />
                             </div>
                         </div>
                         <div class="col-md-4">
-                            @if (IsTemplateMode)
+                            @if (IsTemplateMode && availableTopics != null && availableTopics.Any())
                             {
                                 <div class="mb-3">
-                                    <label for="templateTopic" class="form-label fw-bold">Topic</label>
+                                    <label for="templateTopic" class="form-label fw-bold">@Localizer["Topic"]</label>
                                     <InputSelect id="templateTopic" @bind-Value="currentForm.Topic" class="form-select">
-                                        <option value="">-- Select a Topic --</option>
-                                        @if (availableTopics != null)
+                                        <option value="">@Localizer["SelectTopic"]</option>
+                                        @foreach (var topic in availableTopics)
                                         {
-                                            @foreach (var topic in availableTopics)
-                                            {
-                                                <option value="@topic.Name">@topic.Name</option>
-                                            }
+                                            <option value="@topic.Name">@topic.Name</option>
                                         }
                                     </InputSelect>
                                 </div>
                             }
                         </div>
-                    </div> <!-- Added missing closing div -->
+                    </div>
                     
                     <div class="row">
                         <div class="col-md-8">
                             <div class="mb-3">
-                                <label for="formDescription" class="form-label fw-bold">Description <span class="text-muted small">(Optional)</span></label>
-                                <InputTextArea id="formDescription" @bind-Value="currentForm.Description" class="form-control" rows="2" placeholder="@(IsTemplateMode ? "Enter template description" : "Enter form description")" />
+                                <label for="formDescription" class="form-label fw-bold">@Localizer["Description"] <span class="text-muted small">@Localizer["Optional"]</span></label>
+                                <InputTextArea id="formDescription" @bind-Value="currentForm.Description" class="form-control" rows="2" placeholder="@(IsTemplateMode ? Localizer["EnterTemplateDescription"] : Localizer["EnterFormDescription"])" />
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -101,7 +121,7 @@
                                         <InputCheckbox id="isPublicCheck" class="form-check-input" style="-webkit-appearance:checkbox; -moz-appearance:checkbox; appearance:checkbox;" 
                                                        @bind-Value="currentForm.IsPublic" />
                                         <label class="form-check-label ms-2" for="isPublicCheck">
-                                            Make template public
+                                            @Localizer["MakeTemplatePublic"]
                                         </label>
                                     </div>
                                 </div>
@@ -113,7 +133,7 @@
                                         <InputCheckbox id="isFormPublicCheck" class="form-check-input" style="-webkit-appearance:checkbox; -moz-appearance:checkbox; appearance:checkbox;" 
                                                        @bind-Value="currentForm.IsPublic" />
                                         <label class="form-check-label ms-2" for="isFormPublicCheck">
-                                            Make form public
+                                            @Localizer["MakeFormPublic"]
                                         </label>
                                     </div>
                                 </div>
@@ -122,14 +142,15 @@
                     </div>
                 </div>
             </div>
+
             <div class="questions-container @(questions.Count == 0 ? "empty-container" : "")">
                 @if (questions.Count == 0)
                 {
                     <div class="text-center p-5 border rounded bg-light">
                         <i class="bi bi-question-circle display-4 text-muted"></i>
-                        <p class="mt-3">No questions yet.</p>
+                        <p class="mt-3">@Localizer["NoQuestionsYet"]</p>
                         <button type="button" class="btn btn-primary" @onclick="AddQuestion">
-                            <i class="bi bi-plus-circle me-2"></i>Add your first question
+                            <i class="bi bi-plus-circle me-2"></i>@Localizer["AddYourFirstQuestion"]
                         </button>
                     </div>
                 }
@@ -138,18 +159,18 @@
                     <div class="form-toolbar mb-3 pb-2 pt-1">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <span class="text-muted me-2">@questions.Count question@(questions.Count != 1 ? "s" : "")</span>
+                                <span class="text-muted me-2">@questions.Count @(questions.Count != 1 ? Localizer["Questions"] : Localizer["Question"])</span>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="ExpandAllQuestions" title="Expand all questions">
-                                        <i class="bi bi-arrows-expand"></i> Expand All
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="ExpandAllQuestions" title="@Localizer["ExpandAll"]">
+                                        <i class="bi bi-arrows-expand"></i> @Localizer["ExpandAll"]
                                     </button>
-                                    <button type="button" class="btn btn-outline-secondary" @onclick="CollapseAllQuestions" title="Collapse all questions">
-                                        <i class="bi bi-arrows-collapse"></i> Collapse All
+                                    <button type="button" class="btn btn-outline-secondary" @onclick="CollapseAllQuestions" title="@Localizer["CollapseAll"]">
+                                        <i class="bi bi-arrows-collapse"></i> @Localizer["CollapseAll"]
                                     </button>
                                 </div>
                             </div>
                             <button type="button" class="btn btn-sm btn-primary" @onclick="AddQuestion">
-                                <i class="bi bi-plus-circle me-1"></i> Add Question
+                                <i class="bi bi-plus-circle me-1"></i> @Localizer["AddQuestion"]
                             </button>
                         </div>
                     </div>
@@ -201,19 +222,19 @@
                             {
                                 <div class="question-body p-3">
                                     <div class="mb-3">
-                                        <label class="form-label text-muted" for="question-text-@GetQuestionClientId(question, index)">Question Text:</label>
+                                        <label class="form-label text-muted" for="question-text-@GetQuestionClientId(question, index)">@Localizer["QuestionText"]</label>
                                         <input type="text" 
                                                id="question-text-@GetQuestionClientId(question, index)"
                                                name="question-text-@GetQuestionClientId(question, index)"
                                                value="@question.Text" 
                                                @oninput="(e) => UpdateQuestionText(question, e)" 
                                                class="form-control form-control-lg question-text-input"
-                                               placeholder="Enter your question here" />
+                                               placeholder="@Localizer["EnterYourQuestionHere"]" />
                                     </div>
                                 
                                     <div class="row align-items-center mb-3">
                                         <div class="col-md-4">
-                                            <label class="form-label" for="question-type-@GetQuestionClientId(question, index)">Question Type:</label>
+                                            <label class="form-label" for="question-type-@GetQuestionClientId(question, index)">@Localizer["QuestionType"]</label>
                                         </div>
                                         <div class="col-md-8">
                                             <!-- Question Type selector -->
@@ -233,13 +254,13 @@
 
                                     <div class="alert alert-light mb-3">
                                         <i class="bi @question.Type.GetIconClass() me-2"></i>
-                                        <span>@GetQuestionTypeDescription(question.Type)</span>
+                                        <span>@GetQuestionTypeDescriptionLocalized(question.Type)</span>
                                     </div>
 
                                     @if (question.Type.SupportsOptions())
                                     {
                                         <div class="mt-3 pb-1">
-                                            <span class="text-muted">Options:</span>
+                                            <span class="text-muted">@Localizer["Options"]</span>
                                             
                                             @{
                                                 // Ensure options list exists
@@ -269,7 +290,7 @@
                                                             }
                                                         </div>
                                                         <label class="visually-hidden" for="option-@(GetQuestionClientId(question, index))-@optionIndex">
-                                                            Option @(optionIndex + 1)
+                                                            @Localizer["Option"] @(optionIndex + 1)
                                                         </label>
                                                         <input type="text" 
                                                                id="option-@(GetQuestionClientId(question, index))-@optionIndex"
@@ -277,7 +298,7 @@
                                                                class="form-control form-control-sm"
                                                                value="@(question.Options?[optionIndex] ?? "")" 
                                                                @oninput="(e) => UpdateOption(question, optionIndex, e.Value?.ToString() ?? string.Empty)"
-                                                               placeholder="Option text" />
+                                                               placeholder="@Localizer["OptionText"]" />
                                                         
                                                         <button type="button" class="btn btn-sm btn-link text-danger ms-2" 
                                                                 @onclick="() => RemoveOption(question, optionIndex)">
@@ -289,7 +310,7 @@
 
                                             <button type="button" class="btn btn-sm btn-outline-secondary mt-2" 
                                                     @onclick="() => AddOption(question)">
-                                                <i class="bi bi-plus"></i> Add Option
+                                                <i class="bi bi-plus"></i> @Localizer["AddOption"]
                                             </button>
                                         </div>
                                     }
@@ -297,19 +318,19 @@
                                     {
                                         <!-- Preview fields for non-option question types -->
                                         <div class="mt-3 pb-1">
-                                            <span class="text-muted">Preview:</span>
+                                            <span class="text-muted">@Localizer["Preview"]</span>
                                             
                                             <div class="mt-2 border rounded p-3 bg-light">
                                                 @switch (question.Type)
                                                 {
                                                     case QuestionType.SingleLineText:
                                                         <input type="text" class="form-control" disabled 
-                                                               placeholder="@question.Type.GetPlaceholder()" />
+                                                               placeholder="@GetPlaceholderLocalized(question.Type)" />
                                                         break;
                                                         
                                                     case QuestionType.MultiLineText:
                                                         <textarea class="form-control" rows="3" disabled 
-                                                                  placeholder="@question.Type.GetPlaceholder()"></textarea>
+                                                                  placeholder="@GetPlaceholderLocalized(question.Type)"></textarea>
                                                         break;
                                                         
                                                     case QuestionType.Date:
@@ -318,12 +339,12 @@
                                                         
                                                     case QuestionType.Number:
                                                         <input type="number" class="form-control" disabled 
-                                                               placeholder="@question.Type.GetPlaceholder()" />
+                                                               placeholder="@GetPlaceholderLocalized(question.Type)" />
                                                         break;
                                                         
                                                     case QuestionType.Email:
                                                         <input type="email" class="form-control" disabled 
-                                                               placeholder="@question.Type.GetPlaceholder()" />
+                                                               placeholder="@GetPlaceholderLocalized(question.Type)" />
                                                         break;
                                                         
                                                     case QuestionType.Scale:
@@ -342,21 +363,21 @@
                                                             }
                                                         </div>
                                                         <div class="d-flex justify-content-between mt-1">
-                                                            <span class="small text-muted">Low</span>
-                                                            <span class="small text-muted">High</span>
+                                                            <span class="small text-muted">@Localizer["Low"]</span>
+                                                            <span class="small text-muted">@Localizer["High"]</span>
                                                         </div>
                                                         break;
                                                 }
                                                 
                                                 @if (question.IsRequired)
                                                 {
-                                                    <div class="small text-danger mt-2">* Required</div>
+                                                    <div class="small text-danger mt-2">* @Localizer["Required"]</div>
                                                 }
                                             </div>
                                             
                                             <div class="text-muted small mt-2">
                                                 <i class="bi bi-info-circle me-1"></i>
-                                                This is a preview of how the question will appear to respondents.
+                                                @Localizer["PreviewDescription"]
                                             </div>
                                         </div>
                                     }
@@ -378,7 +399,7 @@
 
             <div class="d-flex justify-content-between mt-4 mb-2">
                 <button type="button" class="btn btn-primary" @onclick="AddQuestion">
-                    <i class="bi bi-plus-circle me-1"></i> Add Question
+                    <i class="bi bi-plus-circle me-1"></i> @Localizer["AddQuestion"]
                 </button>
 
                 <!-- Duplicated save button at bottom -->
@@ -386,12 +407,12 @@
                     @if (isSaving)
                     {
                         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        <span>Saving...</span>
+                        <span>@Localizer["Saving"]</span>
                     }
                     else
                     {
                         <i class="bi bi-save me-1"></i>
-                        <span>@(IsTemplateMode ? "Save Template" : "Save Form")</span>
+                        <span>@(IsTemplateMode ? Localizer["SaveTemplate"] : Localizer["SaveForm"])</span>
                     }
                 </button>
             </div>
@@ -1169,15 +1190,35 @@
 
     public void Dispose()
     {
-        // Stop and dispose the timer
-        autoSaveTimer?.Stop();
-        autoSaveTimer?.Dispose();
+        // Stop the timer immediately to prevent any new auto-save operations
+        if (autoSaveTimer != null)
+        {
+            autoSaveTimer.Enabled = false;
+            autoSaveTimer.Elapsed -= AutoSaveTimer_Elapsed;
+            autoSaveTimer.Stop();
+            autoSaveTimer.Dispose();
+            autoSaveTimer = null;
+        }
         
-        // Make sure to disable the beforeunload warning when component is disposed
-        // This is safe to call even if JSRuntime is being disposed since we're not awaiting it
-        try {
-            _ = JSRuntime.InvokeVoidAsync("appInterop.formUtils.removeBeforeUnloadHandler");
-        } catch { /* Ignore errors during disposal */ }
+        // Do not use fire-and-forget pattern during disposal
+        // This method doesn't need to be async since we're not awaiting anything
+        try 
+        {
+            // We explicitly don't await this call to avoid keeping the process alive
+            // during shutdown, but we also don't use fire-and-forget pattern
+            if (JSRuntime != null)
+            {
+                var _ = JSRuntime.InvokeVoidAsync("console.log", "FormBuilder component disposed");
+            }
+        } 
+        catch 
+        { 
+            // Ignore any errors during disposal 
+        }
+        
+        // Release reference to questions collection to help garbage collector
+        questions?.Clear();
+        _questionClientIds?.Clear();
     }
 
     private async Task NavigateBack()
@@ -1540,6 +1581,14 @@
         }
         StateHasChanged(); // Refresh UI with potentially updated question list and keys
     }
+
+    private void ViewOriginalTemplate()
+    {
+        if (TemplateId.HasValue)
+        {
+            Navigation.NavigateTo($"/templates/view/{TemplateId.Value}");
+        }
+    }
 }
 <style>
     .badge.bg-business {
@@ -1574,6 +1623,37 @@
 </style>
 
 @functions {
+    // Helper method for localized question type descriptions
+    private string GetQuestionTypeDescriptionLocalized(QuestionType type)
+    {
+        return type switch
+        {
+            QuestionType.SingleLineText => Localizer["SingleLineTextDescription"],
+            QuestionType.MultiLineText => Localizer["MultiLineTextDescription"],
+            QuestionType.MultipleChoice => Localizer["MultipleChoiceDescription"],
+            QuestionType.Checkbox => Localizer["CheckboxDescription"],
+            QuestionType.Date => Localizer["DateDescription"],
+            QuestionType.Number => Localizer["NumberDescription"],
+            QuestionType.Email => Localizer["EmailDescription"],
+            QuestionType.Scale => Localizer["ScaleDescription"],
+            QuestionType.Dropdown => Localizer["DropdownDescription"],
+            _ => string.Empty
+        };
+    }
+
+    // Helper method for localized placeholders
+    private string GetPlaceholderLocalized(QuestionType type)
+    {
+        return type switch
+        {
+            QuestionType.SingleLineText => Localizer["SingleLineTextPlaceholder"],
+            QuestionType.MultiLineText => Localizer["MultiLineTextPlaceholder"],
+            QuestionType.Number => Localizer["NumberPlaceholder"],
+            QuestionType.Email => Localizer["EmailPlaceholder"],
+            _ => string.Empty
+        };
+    }
+
     private string GetBadgeClass(string topic)
     {
         // Handle null or empty topic values

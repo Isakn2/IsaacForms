@@ -6,20 +6,21 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 
-<PageTitle>Home - Custom Forms</PageTitle>
+<PageTitle>@Localizer["PageTitle"]</PageTitle>
 
 <div class="container mt-4">
 
     <div class="p-5 mb-4 bg-light rounded-3 text-center">
         <div class="container-fluid py-5">
             <h1 class="display-5 fw-bold">@Localizer["WelcomeMessage"]</h1>
-            <p class="fs-4">Create, share, and manage your forms and templates easily.</p>
+            <p class="fs-4">@Localizer["WelcomeSubtitle"]</p>
             @* Add call-to-action buttons if desired *@
             <button class="btn btn-primary btn-lg" type="button" @onclick="NavigateToFormBuilder">@Localizer["GetStarted"]</button>
         </div>
     </div>
 
     @* --- Latest Templates Section --- *@
+    <h2 class="mb-4">@Localizer["FeaturedTemplates"]</h2>
     <div class="text-end mb-2">
         <a href="/templates/public" class="btn btn-sm btn-outline-primary">@Localizer["ViewAll"]</a>
     </div>
@@ -43,7 +44,7 @@
 
     @* --- Hidden Admin Link --- *@
     <div class="text-center mt-5 pt-5 text-muted">
-        <small><a href="#" @onclick="ShowAdminModal" @onclick:preventDefault>System Administration</a></small>
+        <small><a href="#" @onclick="ShowAdminModal" @onclick:preventDefault>@Localizer["SystemAdministration"]</a></small>
     </div>
 </div>
 
@@ -54,12 +55,12 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Administrator Access</h5>
+                    <h5 class="modal-title">@Localizer["AdministratorAccess"]</h5>
                     <button type="button" class="btn-close" @onclick="CloseAdminModal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="adminPassword">Enter administrator password:</label>
+                        <label for="adminPassword">@Localizer["EnterAdminPassword"]</label>
                         <input type="password" class="form-control mt-2" id="adminPassword" @bind="adminPassword" @onkeyup="HandleKeyPress" />
                     </div>
                     @if (!string.IsNullOrEmpty(passwordError))
@@ -70,8 +71,8 @@
                     }
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseAdminModal">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="ValidatePassword">Access Admin</button>
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAdminModal">@Localizer["Cancel"]</button>
+                    <button type="button" class="btn btn-primary" @onclick="ValidatePassword">@Localizer["AccessAdmin"]</button>
                 </div>
             </div>
         </div>
@@ -112,7 +113,7 @@
         else
         {
             // Password is incorrect, show error
-            passwordError = "Incorrect password. Please try again.";
+            passwordError = Localizer["IncorrectPassword"];
         }
     }
     

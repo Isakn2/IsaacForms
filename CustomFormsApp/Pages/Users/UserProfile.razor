@@ -49,15 +49,17 @@
                     <div class="col">
                         <TemplateCard TemplateItem="template">
                             <CardActions>
-                                 <button class="btn btn-sm btn-outline-primary" @onclick="() => EditTemplate(template.Id)" title="Edit this template">
-                                    <i class="bi bi-pencil-square"></i> Edit
-                                </button>
-                                 <button class="btn btn-sm btn-outline-info" @onclick="() => ViewResponses(template.Id)" title="View submitted responses"> @* Add this button *@
-                                    <i class="bi bi-card-list"></i> Responses
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDeleteTemplate(template.Id, template.Title)" title="Delete this template">
-                                    <i class="bi bi-trash"></i> Delete
-                                </button>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditTemplate(template.Id)" title="Edit this template">
+                                        <i class="bi bi-pencil-square"></i> Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info" @onclick="() => ViewResponses(template.Id)" title="View submitted responses">
+                                        <i class="bi bi-card-list"></i> Responses
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDeleteTemplate(template.Id, template.Title)" title="Delete this template">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </div>
                             </CardActions>
                         </TemplateCard>
                     </div>

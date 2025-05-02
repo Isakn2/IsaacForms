@@ -60,6 +60,8 @@ public class TemplateService : ITemplateService
         
         try
         {
+            _logger.LogInformation("Attempting to fetch template with ID {id}", id);
+            
             // First fetch the template with user and tags
             var template = await context.Templates
                 .Include(t => t.CreatedBy)
@@ -70,21 +72,29 @@ public class TemplateService : ITemplateService
                 
             if (template == null)
             {
-                _logger.LogWarning("Template with ID {id} not found", id);
+                _logger.LogWarning("Template with ID {id} not found or is marked as deleted", id);
                 return null;
             }
             
-            // Fetch questions using EF Core with IgnoreQueryFilters to bypass the filters 
-            // that are causing the questions to not be retrieved
+            _logger.LogInformation("Template with ID {id} found: {title}", id, template.Title);
+            
+            // Fetch questions using a direct SQL query to ensure we get all questions
             var questions = await context.Questions
                 .IgnoreQueryFilters() // Bypass query filters
-                .Where(q => q.TemplateId == id && q.FormId == null)
+                .Where(q => q.TemplateId == id)
                 .AsNoTracking()
                 .OrderBy(q => q.Order)
                 .ToListAsync();
             
-            _logger.LogInformation("Fetched {count} questions for template {id} using EF Core", 
+            _logger.LogInformation("Fetched {count} questions for template {id}", 
                 questions.Count, id);
+            
+            // Log question details for debugging
+            foreach (var question in questions)
+            {
+                _logger.LogDebug("Question {id}: Order={order}, Text={text}, Type={type}", 
+                    question.Id, question.Order, question.Text, question.Type);
+            }
             
             // Attach questions to the template
             template.Questions = questions;
@@ -95,7 +105,7 @@ public class TemplateService : ITemplateService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving template {id}", id);
+            _logger.LogError(ex, "Error retrieving template {id}: {message}", id, ex.Message);
             throw;
         }
     }

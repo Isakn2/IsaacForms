@@ -142,8 +142,21 @@
                 // Use a short delay before navigation
                 await Task.Delay(500);
                 
-                // Perform the navigation with force reload
-                NavigationManager.NavigateTo(destination, true);
+                // IMPORTANT FIX: Always use forceLoad: true to ensure a clean page load 
+                // which properly refreshes the authentication state
+                NavigationManager.NavigateTo(destination, forceLoad: true);
+                return;
+            }
+            
+            // If we get here after a reasonable wait time and still no auth, 
+            // try one more extreme measure - force a full page reload to login
+            if (!isSignedIn && !ClerkAuth.IsAuthenticated)
+            {
+                // Log the situation
+                Logger.LogWarning("Authentication state not detected after multiple checks - will reload the page");
+                
+                // Execute a window.location.reload() via JS interop
+                await JSRuntime.InvokeVoidAsync("window.location.reload");
                 return;
             }
             

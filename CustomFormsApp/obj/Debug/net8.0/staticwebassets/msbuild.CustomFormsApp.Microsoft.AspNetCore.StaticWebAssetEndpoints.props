@@ -16,13 +16,13 @@
       <AssetFile>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\CustomFormsApp.1fa1xsz7lz.bundle.scp.css'))</AssetFile>
       <Selectors><![CDATA[[]]]></Selectors>
       <EndpointProperties><![CDATA[[{"Name":"fingerprint","Value":"1fa1xsz7lz"},{"Name":"integrity","Value":"sha256-A3TTMsQhlbPj8Nq\u002BMDU9vwRiF1IU1Qxq3mLYOphfH10="},{"Name":"label","Value":"_content/CustomFormsApp/CustomFormsApp.bundle.scp.css"}]]]></EndpointProperties>
-      <ResponseHeaders><![CDATA[[{"Name":"Accept-Ranges","Value":"bytes"},{"Name":"Cache-Control","Value":"max-age=31536000, immutable"},{"Name":"Content-Length","Value":"11041"},{"Name":"Content-Type","Value":"text/css"},{"Name":"ETag","Value":"\u0022A3TTMsQhlbPj8Nq\u002BMDU9vwRiF1IU1Qxq3mLYOphfH10=\u0022"},{"Name":"Last-Modified","Value":"Thu, 01 May 2025 03:31:05 GMT"}]]]></ResponseHeaders>
+      <ResponseHeaders><![CDATA[[{"Name":"Accept-Ranges","Value":"bytes"},{"Name":"Cache-Control","Value":"max-age=31536000, immutable"},{"Name":"Content-Length","Value":"11041"},{"Name":"Content-Type","Value":"text/css"},{"Name":"ETag","Value":"\u0022A3TTMsQhlbPj8Nq\u002BMDU9vwRiF1IU1Qxq3mLYOphfH10=\u0022"},{"Name":"Last-Modified","Value":"Thu, 01 May 2025 07:38:08 GMT"}]]]></ResponseHeaders>
     </StaticWebAssetEndpoint>
     <StaticWebAssetEndpoint Include="_content/CustomFormsApp/CustomFormsApp.bundle.scp.css">
       <AssetFile>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\CustomFormsApp.1fa1xsz7lz.bundle.scp.css'))</AssetFile>
       <Selectors><![CDATA[[]]]></Selectors>
       <EndpointProperties><![CDATA[[{"Name":"integrity","Value":"sha256-A3TTMsQhlbPj8Nq\u002BMDU9vwRiF1IU1Qxq3mLYOphfH10="}]]]></EndpointProperties>
-      <ResponseHeaders><![CDATA[[{"Name":"Accept-Ranges","Value":"bytes"},{"Name":"Cache-Control","Value":"no-cache"},{"Name":"Content-Length","Value":"11041"},{"Name":"Content-Type","Value":"text/css"},{"Name":"ETag","Value":"\u0022A3TTMsQhlbPj8Nq\u002BMDU9vwRiF1IU1Qxq3mLYOphfH10=\u0022"},{"Name":"Last-Modified","Value":"Thu, 01 May 2025 03:31:05 GMT"}]]]></ResponseHeaders>
+      <ResponseHeaders><![CDATA[[{"Name":"Accept-Ranges","Value":"bytes"},{"Name":"Cache-Control","Value":"no-cache"},{"Name":"Content-Length","Value":"11041"},{"Name":"Content-Type","Value":"text/css"},{"Name":"ETag","Value":"\u0022A3TTMsQhlbPj8Nq\u002BMDU9vwRiF1IU1Qxq3mLYOphfH10=\u0022"},{"Name":"Last-Modified","Value":"Thu, 01 May 2025 07:38:08 GMT"}]]]></ResponseHeaders>
     </StaticWebAssetEndpoint>
     <StaticWebAssetEndpoint Include="_content/CustomFormsApp/favicon.ifv42okdf2.png">
       <AssetFile>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\staticwebassets\favicon.png'))</AssetFile>

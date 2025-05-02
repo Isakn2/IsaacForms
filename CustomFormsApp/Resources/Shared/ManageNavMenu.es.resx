@@ -48,9 +48,6 @@
   <data name="Security" xml:space="preserve">
     <value>Seguridad</value>
   </data>
-  <data name="Preferences" xml:space="preserve">
-    <value>Preferencias</value>
-  </data>
   <data name="BackToApp" xml:space="preserve">
     <value>Volver a la Aplicación</value>
   </data>

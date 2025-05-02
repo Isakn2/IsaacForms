@@ -137,8 +137,9 @@ namespace CustomFormsApp.Services
                     
                     Console.WriteLine($"LocalizationService: Changed language to '{_currentLanguage}'");
                     
-                    // We're removing the forced page refresh here
-                    // Let components respond to the language change event instead
+                    // Force a page reload to apply the new language
+                    string currentUrl = _navigationManager.Uri;
+                    _navigationManager.NavigateTo(currentUrl, forceLoad: true);
                 }
                 else
                 {

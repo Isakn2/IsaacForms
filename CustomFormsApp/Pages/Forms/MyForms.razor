@@ -26,9 +26,9 @@
     {
         <div class="text-center">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">@Localizer["Loading"]</span>
             </div>
-            <p class="mt-2">Loading forms...</p>
+            <p class="mt-2">@Localizer["LoadingForms"]</p>
         </div>
     }
     else if (!string.IsNullOrEmpty(errorMessage))
@@ -57,7 +57,7 @@
                         <h5 class="mb-1">@form.Name</h5>
                         <small class="text-muted">
                             @Localizer["DateCreated"]: @form.CreatedDate.ToLocalTime().ToString("g") |
-                            Updated: @form.UpdatedDate.ToLocalTime().ToString("g")
+                            @Localizer["Updated"]: @form.UpdatedDate.ToLocalTime().ToString("g")
                         </small>
                         @if (!string.IsNullOrWhiteSpace(form.Description))
                         {
@@ -65,19 +65,19 @@
                         }
                         <div class="d-flex align-items-center mt-1">
                             <span class="badge @(form.IsPublic ? "bg-success" : "bg-secondary") me-2">
-                                @(form.IsPublic ? "Public" : "Private")
+                                @(form.IsPublic ? Localizer["Public"] : Localizer["Private"])
                             </span>
                         </div>
                     </div>
                     <div>
-                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => NavigateToEditForm(form.Id)" title="Edit Form">
-                            <i class="bi bi-pencil-square"></i> Edit
+                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => NavigateToEditForm(form.Id)" title="@Localizer["Edit"]">
+                            <i class="bi bi-pencil-square"></i> @Localizer["Edit"]
                         </button>
-                        <button class="btn btn-sm btn-outline-info me-2" @onclick="() => NavigateToViewResponses(form.Id)" title="View Responses">
+                        <button class="btn btn-sm btn-outline-info me-2" @onclick="() => NavigateToViewResponses(form.Id)" title="@Localizer["Responses"]">
                             <i class="bi bi-eye"></i> @Localizer["Responses"]
                         </button>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDeleteForm(form.Id)" title="Delete Form">
-                            <i class="bi bi-trash"></i> Delete
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDeleteForm(form.Id)" title="@Localizer["Delete"]">
+                            <i class="bi bi-trash"></i> @Localizer["Delete"]
                         </button>
                     </div>
                 </div>
@@ -101,7 +101,7 @@
 
         if (string.IsNullOrEmpty(currentUserId))
         {
-            errorMessage = "User not authenticated. Please log in.";
+            errorMessage = Localizer["NotAuthenticated"];
             isLoading = false;
             // Optionally, redirect to login page
             // Navigation.NavigateTo("/Account/Login", forceLoad: true);
@@ -124,11 +124,11 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error loading forms for user {UserId}", userId);
-            errorMessage = "Failed to load your forms. Please try refreshing the page.";
+            errorMessage = Localizer["LoadError"];
             forms = Enumerable.Empty<Form>(); // Ensure forms is not null on error
         }
     }
-    // ---------------------------------------------
+    
 
     private void NavigateToCreateForm()
     {
@@ -142,10 +142,22 @@
 
     private void NavigateToViewResponses(int formId)
     {
-        Navigation.NavigateTo($"/form-responses/{formId}");
-        Logger.LogInformation("NavigateToViewResponses called for form {FormId}", formId);
-        // errorMessage = $"Viewing responses for form {formId} is not yet implemented.";
-        // StateHasChanged();
+        // Get the form's templateId first (if applicable)
+        var form = forms?.FirstOrDefault(f => f.Id == formId);
+        
+        if (form?.TemplateId.HasValue == true)
+        {
+            // If the form is based on a template, navigate to the template responses view
+            Navigation.NavigateTo($"/responses/view/template/{form.TemplateId.Value}");
+            Logger.LogInformation("Navigating to template responses view for template {TemplateId} (form {FormId})", 
+                form.TemplateId.Value, formId);
+        }
+        else
+        {
+            // If it's a standalone form, navigate to the form responses view
+            Navigation.NavigateTo($"/responses/view/form/{formId}");
+            Logger.LogInformation("Navigating to form responses view for form {FormId}", formId);
+        }
     }
 
     private async Task ConfirmDeleteForm(int formId)
@@ -154,7 +166,7 @@
         var formToDelete = forms?.FirstOrDefault(f => f.Id == formId);
         var formName = formToDelete?.Name ?? $"ID {formId}";
 
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the form '{formName}' and all its responses? This action cannot be undone.");
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", string.Format(Localizer["DeleteConfirmation"], formName));
         if (confirmed)
         {
             await DeleteFormAsync(formId);
@@ -183,7 +195,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error deleting form {FormId}", formId);
-            errorMessage = "Failed to delete the form. It might have already been deleted or an error occurred.";
+            errorMessage = Localizer["DeleteError"];
         }
         finally
         {

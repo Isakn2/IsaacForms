@@ -8,6 +8,7 @@
 @inject NavigationManager Navigation
 @inject ILogger<ViewTemplate> Logger
 @inject ICurrentUserService CurrentUserService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>View Template: @(template?.Title ?? "Loading...")</PageTitle>
 
@@ -25,7 +26,7 @@
         <div class="alert alert-danger" role="alert">
             <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
         </div>
-        <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/templates")'> @* Corrected quotes *@
+        <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/templates")'>
              <i class="bi bi-arrow-left"></i> Back to Templates
         </button>
     }
@@ -34,117 +35,124 @@
         <div class="alert alert-warning" role="alert">
             Template not found or you may not have permission to view it.
         </div>
-         <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/templates")'> @* Corrected quotes *@
+         <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/templates")'>
              <i class="bi bi-arrow-left"></i> Back to Templates
         </button>
     }
     else
     {
-        @* --- Template Details Card --- *@
-        <div class="card shadow-sm mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h2 class="mb-0 me-3">@template.Title</h2>
-                <div class="d-flex align-items-center gap-2">
-                    <LikeButton TemplateId="@template.Id" />
-                    <button class="btn btn-primary" @onclick="UseTemplate" title="Create a form based on this template">
-                        <i class="bi bi-plus-square me-1"></i> Use Template
-                    </button>
-                    @* Show Edit button only if the current user owns the template *@
-                    @if (IsOwner())
-                    {
-                        <button class="btn btn-outline-secondary" @onclick="EditTemplate" title="Edit this template">
-                            <i class="bi bi-pencil-square me-1"></i> Edit
+        try
+        {
+            <!-- Template Details Card -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h2 class="mb-0 me-3">@template.Title</h2>
+                    <div class="d-flex align-items-center gap-2">
+                        <LikeButton TemplateId="@template.Id" />
+                        <button class="btn btn-primary" @onclick="UseTemplate" title="Create a form based on this template">
+                            <i class="bi bi-plus-square me-1"></i> Use Template
                         </button>
+                        @if (IsOwner())
+                        {
+                            <button class="btn btn-outline-secondary" @onclick="EditTemplate" title="Edit this template">
+                                <i class="bi bi-pencil-square me-1"></i> Edit
+                            </button>
+                        }
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrWhiteSpace(template.Description))
+                    {
+                        <p class="card-text">@template.Description</p>
+                    }
+                    else
+                    {
+                        <p class="card-text text-muted"><i>No description provided.</i></p>
+                    }
+
+                    <div class="row mb-3 small text-muted">
+                        <div class="col-md-6">
+                            <strong>Author:</strong> @(template.CreatedBy?.Username ?? "Unknown")
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Topic:</strong> @(template.Topic ?? "N/A")
+                        </div>
+                    </div>
+                    <div class="row small text-muted">
+                        <div class="col-md-6">
+                            <strong>Created:</strong> @template.CreatedDate.ToLocalTime().ToString("g")
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Last Updated:</strong> @(template.LastModifiedDate?.ToLocalTime().ToString("g") ?? "N/A")
+                        </div>
+                    </div>
+                    @if (template.TemplateTags != null && template.TemplateTags.Any())
+                    {
+                        <div class="mt-3">
+                            <strong>Tags:</strong>
+                            @foreach (var tag in template.Tags)
+                            {
+                                <span class="badge bg-secondary me-1">@tag.Name</span>
+                            }
+                        </div>
                     }
                 </div>
             </div>
-            <div class="card-body">
-                @if (!string.IsNullOrWhiteSpace(template.Description))
-                {
-                    <p class="card-text">@template.Description</p>
-                }
-                else
-                {
-                    <p class="card-text text-muted"><i>No description provided.</i></p>
-                }
 
-                <div class="row mb-3 small text-muted">
-                    <div class="col-md-6">
-                        <strong>Author:</strong> @(template.CreatedBy?.Username ?? "Unknown")
-                    </div>
-                    <div class="col-md-6">
-                        <strong>Topic:</strong> @(template.Topic ?? "N/A")
-                    </div>
-                </div>
-                 <div class="row small text-muted">
-                    <div class="col-md-6">
-                        <strong>Created:</strong> @template.CreatedDate.ToLocalTime().ToString("g")
-                    </div>
-                    <div class="col-md-6">
-                        <strong>Last Updated:</strong> @(template.LastModifiedDate?.ToLocalTime().ToString("g") ?? "N/A")
-                    </div>
-                </div>
-                @* TODO: Display Tags if they exist *@
-                @if (template.TemplateTags != null && template.TemplateTags.Any())
-                {
-                    <div class="mt-3">
-                        <strong>Tags:</strong>
-                        @foreach (var tag in template.Tags)
-                        {
-                            <span class="badge bg-secondary me-1">@tag.Name</span>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-
-        @* --- Template Questions Section --- *@
-        <h3 class="mt-5 mb-3">Template Questions</h3>
-        @if (template.Questions == null || !template.Questions.Any())
-        {
-            <p class="text-muted">This template has no questions defined.</p>
-        }
-        else
-        {
-            <div class="list-group mb-5">
-                @foreach (var question in template.Questions.OrderBy(q => q.Order))
-                {
-                    <div class="list-group-item list-group-item-action flex-column align-items-start">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</h5>
-                            <small class="text-muted">Type: @question.Type</small>
-                        </div>
-                        @if (!string.IsNullOrWhiteSpace(question.Description))
-                        {
-                            <p class="mb-1 text-muted small">@question.Description</p>
-                        }
-                        @* Display options for relevant types *@
-                        @if ((question.Type == QuestionType.Checkbox || question.Type == QuestionType.MultipleChoice || question.Type == QuestionType.Dropdown) && question.Options != null && question.Options.Any())
-                        {
-                            <div class="mt-2">
-                                <small><strong>Options:</strong></small>
-                                <ul class="list-unstyled small ms-3">
-                                    @foreach (var option in string.Join('\n', question.Options).Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries))
-                                    {
-                                        <li>- @option.Trim()</li>
-                                    }
-                                </ul>
+            <!-- Template Questions Section -->
+            <h3 class="mt-5 mb-3">Template Questions</h3>
+            @if (template.Questions == null || !template.Questions.Any())
+            {
+                <p class="text-muted">This template has no questions defined.</p>
+            }
+            else
+            {
+                <div class="list-group mb-5">
+                    @foreach (var question in template.Questions.OrderBy(q => q.Order))
+                    {
+                        <div class="list-group-item list-group-item-action flex-column align-items-start">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">@question.Order. @question.Text @(question.IsRequired ? "*" : "")</h5>
+                                <small class="text-muted">Type: @question.Type</small>
                             </div>
-                        }
-                    </div>
-                }
+                            @if (!string.IsNullOrWhiteSpace(question.Description))
+                            {
+                                <p class="mb-1 text-muted small">@question.Description</p>
+                            }
+                            @if ((question.Type == QuestionType.Checkbox || question.Type == QuestionType.MultipleChoice || question.Type == QuestionType.Dropdown) && question.Options != null && question.Options.Any())
+                            {
+                                <div class="mt-2">
+                                    <small><strong>Options:</strong></small>
+                                    <ul class="list-unstyled small ms-3">
+                                        @foreach (var option in string.Join('\n', question.Options).Split(new[] { '\n', ',' }, StringSplitOptions.RemoveEmptyEntries))
+                                        {
+                                            <li>- @option.Trim()</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Comments Section -->
+            <div class="comments-section mt-5 pt-4 border-top">
+                <h3 class="mb-3">Comments</h3>
+                <CommentList @ref="commentListRef" TemplateId="@TemplateId" />
+                <CommentInput TemplateId="@TemplateId" OnCommentAdded="HandleCommentAdded" />
             </div>
         }
-
-        @* --- Comments Section --- *@
-        <div class="comments-section mt-5 pt-4 border-top">
-            <h3 class="mb-3">Comments</h3>
-            @* Render the comment list, passing the TemplateId *@
-            <CommentList @ref="commentListRef" TemplateId="@TemplateId" />
-
-            @* Render the comment input, passing TemplateId and wiring up the event *@
-            <CommentInput TemplateId="@TemplateId" OnCommentAdded="HandleCommentAdded" />
-        </div>
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error rendering template {TemplateId}: {Message}", TemplateId, ex.Message);
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> An error occurred while displaying the template: @ex.Message
+            </div>
+            <button class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/templates")'>
+                <i class="bi bi-arrow-left"></i> Back to Templates
+            </button>
+        }
     }
 </div>
 
@@ -160,6 +168,24 @@
     // Reference to the CommentList component
     private CommentList? commentListRef;
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Log rendering completion to the browser console
+                await JSRuntime.InvokeVoidAsync("console.log", $"Template view rendered: Template ID {TemplateId}, isLoading={isLoading}, template is {(template == null ? "null" : "not null")}");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error in OnAfterRenderAsync for Template {TemplateId}", TemplateId);
+            }
+
+            await EnsureTemplateLoaded();
+        }
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         isLoading = true;
@@ -167,10 +193,17 @@
         template = null;
         currentUserId = CurrentUserService.GetUserId(); // Get current user ID
 
+        Logger.LogInformation("Starting to load template with ID {TemplateId}", TemplateId);
+
+        // Force UI update to show loading spinner
+        await InvokeAsync(StateHasChanged);
+
         if (TemplateId <= 0)
         {
             errorMessage = "Invalid Template ID.";
             isLoading = false;
+            Logger.LogWarning("Invalid Template ID provided: {TemplateId}", TemplateId);
+            await InvokeAsync(StateHasChanged);
             return;
         }
 
@@ -182,23 +215,51 @@
             if (template == null)
             {
                 errorMessage = "Template not found or you may not have permission to view it.";
+                Logger.LogWarning("Template with ID {TemplateId} not found", TemplateId);
+            }
+            else
+            {
+                // Check if Questions is null and log appropriately
+                if (template.Questions == null)
+                {
+                    Logger.LogWarning("Template {TemplateId} has null Questions collection", TemplateId);
+                    template.Questions = new List<Question>(); // Initialize to empty list to prevent null reference
+                }
+
+                // Ensure TemplateTags collection is initialized (not Tags which is read-only)
+                if (template.TemplateTags == null)
+                {
+                    Logger.LogWarning("Template {TemplateId} has null TemplateTags collection", TemplateId);
+                    template.TemplateTags = new List<TemplateTag>(); // Initialize to empty list
+                }
+
+                Logger.LogInformation("Successfully loaded template {TemplateId}: {Title} with {QuestionCount} questions", 
+                    TemplateId, template.Title, template.Questions?.Count ?? 0);
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error loading template with ID {TemplateId}", TemplateId);
-            errorMessage = "An error occurred while loading the template details.";
+            Logger.LogError(ex, "Error loading template with ID {TemplateId}: {Message}", TemplateId, ex.Message);
+            errorMessage = $"An error occurred while loading the template details: {ex.Message}";
         }
         finally
         {
             isLoading = false;
+            
+            // Force UI update after template is loaded
+            await InvokeAsync(StateHasChanged);
+            
+            Logger.LogInformation("Finished loading template with ID {TemplateId}, isLoading={IsLoading}, hasTemplate={HasTemplate}", 
+                TemplateId, isLoading, template != null);
         }
     }
 
     private void UseTemplate()
     {
         // Navigate to the form builder, passing the template ID to pre-fill
-        Navigation.NavigateTo($"/form-builder?templateId={TemplateId}");
+        // Add forceLoad: true to ensure a full page refresh
+        Logger.LogInformation("Navigating to form builder with template ID {TemplateId}", TemplateId);
+        Navigation.NavigateTo($"/form-builder?templateId={TemplateId}", forceLoad: true);
     }
 
     private void EditTemplate()
@@ -222,11 +283,41 @@
         if (commentListRef != null)
         {
             Logger.LogInformation("New comment added for Template {TemplateId}, refreshing list.", TemplateId);
-            await commentListRef.LoadComments(); // Call the public method on CommentList to refresh
+            
+            // Force UI to re-render after the comments are refreshed
+            await InvokeAsync(async () => {
+                await commentListRef.LoadComments();
+                StateHasChanged();
+                
+                // Log success for troubleshooting
+                Logger.LogInformation("Comment list refreshed successfully for template {TemplateId}", TemplateId);
+            });
         }
         else
         {
-             Logger.LogWarning("commentListRef is null in HandleCommentAdded for Template {TemplateId}.", TemplateId);
+            Logger.LogWarning("commentListRef is null in HandleCommentAdded for Template {TemplateId}.", TemplateId);
+        }
+    }
+
+    // New method to handle first-time loading edge cases
+    private async Task EnsureTemplateLoaded()
+    {
+        if (template == null && !isLoading && string.IsNullOrEmpty(errorMessage))
+        {
+            Logger.LogWarning("Template is null but no error and not loading - attempting reload for {TemplateId}", TemplateId);
+            try
+            {
+                template = await TemplateService.GetTemplateAsync(TemplateId);
+                if (template != null)
+                {
+                    Logger.LogInformation("Successfully reloaded template {TemplateId}", TemplateId);
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error during template reload attempt");
+            }
         }
     }
 }

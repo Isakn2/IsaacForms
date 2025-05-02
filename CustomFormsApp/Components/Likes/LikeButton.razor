@@ -47,9 +47,17 @@ else
     private string? currentUserId;
     private string? errorMessage; // For potential error display
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        isProcessing = true; // Start in loading state
+        // This makes the component re-evaluate whenever the TemplateId parameter changes
+        await LoadLikeStatus();
+    }
+
+    private async Task LoadLikeStatus()
+    {
+        isProcessing = true;
+        StateHasChanged(); // Show processing state immediately
+        
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         isAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
 
@@ -62,6 +70,8 @@ else
         {
             try
             {
+                Logger.LogInformation("Loading like status for template {TemplateId}", TemplateId);
+                
                 // Fetch initial state concurrently
                 var likeCountTask = LikeService.GetLikeCountAsync(TemplateId);
                 var userLikedTask = isAuthenticated && !string.IsNullOrEmpty(currentUserId)
@@ -72,10 +82,13 @@ else
 
                 currentLikeCount = await likeCountTask;
                 isLiked = await userLikedTask;
+                
+                Logger.LogInformation("Like status for template {TemplateId}: count={Count}, userLiked={Liked}", 
+                    TemplateId, currentLikeCount, isLiked);
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "Error initializing LikeButton for TemplateId {TemplateId}", TemplateId);
+                Logger.LogError(ex, "Error loading like status for TemplateId {TemplateId}", TemplateId);
                 errorMessage = "Error loading like status.";
                 // Keep default state (0 likes, not liked)
                 currentLikeCount = 0;
@@ -84,12 +97,13 @@ else
         }
         else
         {
-             Logger.LogWarning("LikeButton initialized with invalid TemplateId (0 or less).");
+             Logger.LogWarning("LikeButton initialized with invalid TemplateId: {TemplateId}", TemplateId);
              currentLikeCount = 0;
              isLiked = false;
         }
 
         isProcessing = false;
+        await InvokeAsync(StateHasChanged); // Ensure UI updates after loading
     }
 
     private async Task HandleLikeClick()
