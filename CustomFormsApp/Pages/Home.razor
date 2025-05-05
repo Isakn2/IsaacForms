@@ -86,7 +86,6 @@
     private string adminPassword = "";
     private string passwordError = "";
     
-    // Get password from configuration without a hardcoded fallback
     private string? correctPassword => Configuration["ADMIN_PASSWORD"];
 
     private void ShowAdminModal()
