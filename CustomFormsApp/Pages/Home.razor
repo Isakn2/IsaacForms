@@ -5,6 +5,7 @@
 @inject IStringLocalizer<Home> Localizer
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject IConfiguration Configuration
 
 <PageTitle>@Localizer["PageTitle"]</PageTitle>
 
@@ -85,8 +86,8 @@
     private string adminPassword = "";
     private string passwordError = "";
     
-    // Correct password - in a real app, this should be stored securely, not hardcoded
-    private const string CORRECT_PASSWORD = "AdminAccess123!"; 
+    // Get password from configuration without a hardcoded fallback
+    private string? correctPassword => Configuration["ADMIN_PASSWORD"];
 
     private void ShowAdminModal()
     {
@@ -104,7 +105,14 @@
 
     private void ValidatePassword()
     {
-        if (adminPassword == CORRECT_PASSWORD)
+        // First check if the admin password is configured properly
+        if (string.IsNullOrEmpty(correctPassword))
+        {
+            passwordError = "System error: Admin password not configured";
+            return;
+        }
+        
+        if (adminPassword == correctPassword)
         {
             // Password is correct, navigate to the admin page
             showAdminModal = false;
