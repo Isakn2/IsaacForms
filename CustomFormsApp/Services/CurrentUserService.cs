@@ -8,6 +8,10 @@ public class CurrentUserService : ICurrentUserService
     private readonly AuthenticationStateProvider _authenticationStateProvider;
     private readonly ClerkAuthService _clerkAuthService;
     private readonly ILogger<CurrentUserService> _logger;
+    private ClaimsPrincipal? _cachedUser;
+    private DateTime _cacheExpiry = DateTime.MinValue;
+    private readonly SemaphoreSlim _cacheLock = new SemaphoreSlim(1, 1);
+    private readonly TimeSpan _cacheLifetime = TimeSpan.FromSeconds(30);
 
     public CurrentUserService(
         AuthenticationStateProvider authenticationStateProvider,
@@ -17,6 +21,52 @@ public class CurrentUserService : ICurrentUserService
         _authenticationStateProvider = authenticationStateProvider;
         _clerkAuthService = clerkAuthService;
         _logger = logger;
+        
+        // Subscribe to auth state changes to invalidate cache
+        _authenticationStateProvider.AuthenticationStateChanged += _ => InvalidateCache();
+        _clerkAuthService.UserSignedIn += _ => InvalidateCache();
+        _clerkAuthService.UserSignedOut += InvalidateCache;
+    }
+
+    private void InvalidateCache()
+    {
+        _cachedUser = null;
+        _cacheExpiry = DateTime.MinValue;
+    }
+
+    private async Task<ClaimsPrincipal> GetUserAsync()
+    {
+        // Check if we have a valid cached user
+        if (_cachedUser != null && DateTime.UtcNow < _cacheExpiry)
+        {
+            return _cachedUser;
+        }
+
+        // Lock to prevent multiple simultaneous auth state requests
+        await _cacheLock.WaitAsync();
+        try
+        {
+            // Double-check in case another thread already updated the cache
+            if (_cachedUser != null && DateTime.UtcNow < _cacheExpiry)
+            {
+                return _cachedUser;
+            }
+
+            // Get fresh auth state
+            var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+            _cachedUser = authState.User;
+            _cacheExpiry = DateTime.UtcNow.Add(_cacheLifetime);
+            return _cachedUser;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting authentication state");
+            return new ClaimsPrincipal(new ClaimsIdentity()); // Return unauthenticated user
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
     }
 
     public string? GetUserId()
@@ -28,11 +78,13 @@ public class CurrentUserService : ICurrentUserService
             return clerkUser.Id;
         }
 
-        // Fallback to AuthenticationState claims
+        // Fallback to AuthenticationState claims - use a non-blocking approach
         try
         {
-            var authState = _authenticationStateProvider.GetAuthenticationStateAsync().GetAwaiter().GetResult();
-            var user = authState.User;
+            // Use GetAwaiter().GetResult() but with a timeout to prevent deadlocks
+            var user = Task.Run(async () => await GetUserAsync()).Wait(500) 
+                ? Task.Run(async () => await GetUserAsync()).Result 
+                : new ClaimsPrincipal(new ClaimsIdentity());
             
             if (user.Identity?.IsAuthenticated == true)
             {
@@ -59,7 +111,7 @@ public class CurrentUserService : ICurrentUserService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting user ID from authentication state");
+            _logger.LogWarning(ex, "Error getting user ID from authentication state - non-blocking");
         }
 
         _logger.LogWarning("Could not determine user ID - user may not be authenticated");
@@ -78,8 +130,9 @@ public class CurrentUserService : ICurrentUserService
         // Fallback to AuthenticationState claims
         try
         {
-            var authState = _authenticationStateProvider.GetAuthenticationStateAsync().GetAwaiter().GetResult();
-            var user = authState.User;
+            var user = Task.Run(async () => await GetUserAsync()).Wait(500) 
+                ? Task.Run(async () => await GetUserAsync()).Result 
+                : new ClaimsPrincipal(new ClaimsIdentity());
             
             if (user.Identity?.IsAuthenticated == true)
             {
@@ -113,8 +166,9 @@ public class CurrentUserService : ICurrentUserService
         // Fallback to AuthenticationState claims
         try
         {
-            var authState = _authenticationStateProvider.GetAuthenticationStateAsync().GetAwaiter().GetResult();
-            var user = authState.User;
+            var user = Task.Run(async () => await GetUserAsync()).Wait(500) 
+                ? Task.Run(async () => await GetUserAsync()).Result 
+                : new ClaimsPrincipal(new ClaimsIdentity());
             
             if (user.Identity?.IsAuthenticated == true)
             {
@@ -149,8 +203,9 @@ public class CurrentUserService : ICurrentUserService
         try
         {
             // Check if the user has admin role/claims from authentication state
-            var authState = _authenticationStateProvider.GetAuthenticationStateAsync().GetAwaiter().GetResult();
-            var user = authState.User;
+            var user = Task.Run(async () => await GetUserAsync()).Wait(500) 
+                ? Task.Run(async () => await GetUserAsync()).Result 
+                : new ClaimsPrincipal(new ClaimsIdentity());
             
             if (user.Identity?.IsAuthenticated == true)
             {
@@ -200,8 +255,10 @@ public class CurrentUserService : ICurrentUserService
         
         try
         {
-            var authState = _authenticationStateProvider.GetAuthenticationStateAsync().GetAwaiter().GetResult();
-            return authState.User.Identity?.IsAuthenticated == true;
+            var user = Task.Run(async () => await GetUserAsync()).Wait(500) 
+                ? Task.Run(async () => await GetUserAsync()).Result 
+                : new ClaimsPrincipal(new ClaimsIdentity());
+            return user.Identity?.IsAuthenticated == true;
         }
         catch (Exception ex)
         {

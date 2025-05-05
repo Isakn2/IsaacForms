@@ -10,7 +10,5 @@ namespace CustomFormsApp.Data.Models
         [Required]
         [MaxLength(100)]
         public string Name { get; set; } = string.Empty;
-
-        // Optional: Add description, icon, etc. if needed later
     }
 }

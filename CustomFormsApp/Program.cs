@@ -42,8 +42,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddScoped<AuthenticationStateProvider, ClerkAuthenticationStateProvider>();
-
 // Database Configuration - Use DbContextFactory
 builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
 {
@@ -70,6 +68,9 @@ builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
 // Clerk Authentication Setup
 builder.Services.AddClerkAuth(builder.Configuration);
 
+// Register AuthenticationStateProvider explicitly to ensure it's properly overridden
+builder.Services.AddScoped<AuthenticationStateProvider, ClerkAuthenticationStateProvider>();
+
 // Authorization Policies
 builder.Services.AddAuthorization(options =>
 {
@@ -86,9 +87,6 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IFormService, FormService>();
 builder.Services.AddScoped<FormBuilderService>();
 builder.Services.AddScoped<IFormBuilderService, FormBuilderService>();
-builder.Services.AddScoped<ISearchService, SearchService>();
-builder.Services.AddScoped<ICloudStorageService, AzureBlobStorageService>();
-builder.Services.AddScoped<ThemeService>();
 builder.Services.AddScoped<IAuthorizationHandler, TemplateOwnerAuthorizationHandler>();
 builder.Services.AddScoped<ITopicService, TopicService>();
 builder.Services.AddScoped<ILikeService, LikeService>();
@@ -96,16 +94,14 @@ builder.Services.AddScoped<ICommentService, CommentService>();
 builder.Services.AddScoped<IFormResponseService, FormResponseService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<LocalizationService>();
-
-// HttpClient Configuration
-builder.Services.AddHttpClient("ServerAPI", client => 
-{
-    client.BaseAddress = new Uri(builder.Configuration["BaseAddress"] ?? builder.Environment.WebRootPath);
-});
+builder.Services.AddScoped<ThemeService>();
 
 // Blazor and UI Services
 builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor(options => options.DetailedErrors = true);
+builder.Services.AddServerSideBlazor(options => {
+    options.DetailedErrors = true;
+    options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(3);
+});
 builder.Services.AddBlazorDragDrop();
 builder.Services.AddHttpContextAccessor();
 
@@ -118,9 +114,6 @@ builder.Services.AddScoped<IFullTextSearchService, SqlFullTextSearchService>();
 
 var app = builder.Build();
 Console.WriteLine("Application built successfully");
-
-// Set service provider for ThemeService static methods
-ThemeService.SetServiceProvider(app.Services.CreateScope().ServiceProvider);
 
 // Ensure topics are seeded
 await TopicSeeder.SeedTopicsAsync(app.Services);
@@ -153,7 +146,7 @@ app.UseRequestLocalization(new RequestLocalizationOptions
         new CultureInfo("en"),    // English (Neutral)
         new CultureInfo("es-ES"), // Spanish (Spain)
         new CultureInfo("es"),    // Spanish (Neutral)
-        // Add other languages you support
+        
     },
     SupportedUICultures = new[]
     {
@@ -161,7 +154,6 @@ app.UseRequestLocalization(new RequestLocalizationOptions
         new CultureInfo("en"),    // English (Neutral)
         new CultureInfo("es-ES"), // Spanish (Spain)
         new CultureInfo("es"),    // Spanish (Neutral)
-        // Add other languages you support
     }
 });
 

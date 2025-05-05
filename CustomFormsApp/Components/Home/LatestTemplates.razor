@@ -57,6 +57,9 @@
                                 <a href="/templates/view/@template.Id" class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-eye"></i> View
                                 </a>
+                                <button @onclick="() => FillTemplate(template.Id)" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-pencil-square"></i> Fill
+                                </button>
                                 <button @onclick="() => UseTemplate(template.Id)" class="btn btn-sm btn-primary">
                                     <i class="bi bi-plus-square"></i> Use
                                 </button>
@@ -111,5 +114,12 @@
         // Navigate to form builder with the template ID to use it as a starting point
         Logger.LogInformation("Using template ID {TemplateId} to create form", templateId);
         Navigation.NavigateTo($"/form-builder?templateId={templateId}");
+    }
+    
+    private void FillTemplate(int templateId)
+    {
+        // Navigate to form filler with the template ID to fill it out
+        Logger.LogInformation("Filling template ID {TemplateId}", templateId);
+        Navigation.NavigateTo($"/templates/fill/{templateId}");
     }
 }

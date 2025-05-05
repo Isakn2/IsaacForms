@@ -4,11 +4,13 @@
 @using CustomFormsApp.Services
 @using CustomFormsApp.Components.Likes
 @using CustomFormsApp.Components.Comments 
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ITemplateService TemplateService
 @inject NavigationManager Navigation
 @inject ILogger<ViewTemplate> Logger
 @inject ICurrentUserService CurrentUserService
 @inject IJSRuntime JSRuntime
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>View Template: @(template?.Title ?? "Loading...")</PageTitle>
 
@@ -168,30 +170,66 @@
     // Reference to the CommentList component
     private CommentList? commentListRef;
 
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogInformation("OnInitializedAsync: Starting initialization for template {TemplateId}", TemplateId);
+        await LoadUserAndTemplate();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            try
+            Logger.LogInformation("OnAfterRenderAsync (firstRender): Checking template state for {TemplateId}", TemplateId);
+            
+            // This helps with auth state that might not be ready during initial load
+            if (template == null && !isLoading)
             {
-                // Log rendering completion to the browser console
-                await JSRuntime.InvokeVoidAsync("console.log", $"Template view rendered: Template ID {TemplateId}, isLoading={isLoading}, template is {(template == null ? "null" : "not null")}");
+                Logger.LogInformation("Template was null after initial render - reloading");
+                await LoadUserAndTemplate();
+                StateHasChanged();
             }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error in OnAfterRenderAsync for Template {TemplateId}", TemplateId);
-            }
-
-            await EnsureTemplateLoaded();
         }
     }
 
     protected override async Task OnParametersSetAsync()
     {
+        Logger.LogInformation("OnParametersSetAsync: Parameters updated for template {TemplateId}", TemplateId);
+        
+        // Only reload if TemplateId has changed or template is null
+        if (template == null || template.Id != TemplateId)
+        {
+            await LoadUserAndTemplate();
+        }
+    }
+
+    private async Task LoadUserAndTemplate()
+    {
+        try
+        {
+            // First try to get the current user ID (might be null if not authenticated yet)
+            currentUserId = CurrentUserService.GetUserId();
+            Logger.LogInformation("LoadUserAndTemplate: CurrentUserId={UserId}", currentUserId ?? "null");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting current user ID, proceeding with template load anyway");
+        }
+
+        await LoadTemplateAsync();
+    }
+
+    private async Task LoadTemplateAsync()
+    {
         isLoading = true;
         errorMessage = null;
-        template = null;
-        currentUserId = CurrentUserService.GetUserId(); // Get current user ID
+        
+        // Don't set template to null if it's already loaded - helps avoid flash of loading
+        // Only set to null if we're actually changing templates
+        if (template == null || template.Id != TemplateId)
+        {
+            template = null;
+        }
 
         Logger.LogInformation("Starting to load template with ID {TemplateId}", TemplateId);
 
@@ -254,6 +292,10 @@
         }
     }
 
+    // Register for auth state changes to reload user data when auth state changes
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     private void UseTemplate()
     {
         // Navigate to the form builder, passing the template ID to pre-fill
@@ -296,28 +338,6 @@
         else
         {
             Logger.LogWarning("commentListRef is null in HandleCommentAdded for Template {TemplateId}.", TemplateId);
-        }
-    }
-
-    // New method to handle first-time loading edge cases
-    private async Task EnsureTemplateLoaded()
-    {
-        if (template == null && !isLoading && string.IsNullOrEmpty(errorMessage))
-        {
-            Logger.LogWarning("Template is null but no error and not loading - attempting reload for {TemplateId}", TemplateId);
-            try
-            {
-                template = await TemplateService.GetTemplateAsync(TemplateId);
-                if (template != null)
-                {
-                    Logger.LogInformation("Successfully reloaded template {TemplateId}", TemplateId);
-                    StateHasChanged();
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error during template reload attempt");
-            }
         }
     }
 }

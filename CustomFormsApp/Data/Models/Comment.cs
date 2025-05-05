@@ -26,7 +26,7 @@ namespace CustomFormsApp.Data.Models
 
         [Required]
         [MaxLength(2000)]
-        public string Text { get; set; } = string.Empty; // Added Text property
+        public string Text { get; set; } = string.Empty; 
 
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     }

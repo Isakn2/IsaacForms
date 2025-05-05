@@ -18,7 +18,7 @@ public class ClerkUserDbModel
     [MaxLength(256)]
     public string? Email { get; set; }
 
-    [MaxLength(100)] // Added MaxLength
+    [MaxLength(100)] 
     public string? Username { get; set; }
 
     [MaxLength(500)]
